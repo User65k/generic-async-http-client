@@ -165,7 +165,7 @@ impl Stream {
                 };
             }
             #[cfg(not(any(feature = "rustls")))]
-            return Err(Error::Scheme);
+            return Err(io::Error::new(io::ErrorKind::InvalidInput,"no TLS backend available"));
         }else{
             return Ok(Stream {
                 state: State::Plain(tcp)
@@ -180,6 +180,7 @@ impl Connection for Stream {
         let mut c = hyper::client::connect::Connected::new();
 
         match self.state {
+            #[cfg(feature = "rustls")]
             State::Tls(ref t) => {
                 let (_, s) = t.get_ref();
                 if Some(&b"h2"[..]) == s.get_alpn_protocol() {
@@ -200,6 +201,7 @@ impl Write for Stream {
         ) -> Poll<io::Result<usize>> {
             let pin = self.get_mut();
             match pin.state {
+                #[cfg(feature = "rustls")]
                 State::Tls(ref mut t) => Pin::new(t).poll_write(cx, buf),
                 State::Plain(ref mut t) => Pin::new(t).poll_write(cx, buf),
             }
@@ -208,6 +210,7 @@ impl Write for Stream {
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
+            #[cfg(feature = "rustls")]
             State::Tls(ref mut t) => Pin::new(t).poll_flush(cx),
             State::Plain(ref mut t) => Pin::new(t).poll_flush(cx),
         }
@@ -217,6 +220,7 @@ impl Write for Stream {
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
+            #[cfg(feature = "rustls")]
             State::Tls(ref mut t) => Pin::new(t).poll_close(cx),
             State::Plain(ref mut t) => Pin::new(t).poll_close(cx),
         }
@@ -226,6 +230,7 @@ impl Write for Stream {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::result::Result<(), std::io::Error>> {
         let pin = self.get_mut();
         match pin.state {
+            #[cfg(feature = "rustls")]
             State::Tls(ref mut t) => Pin::new(t).poll_shutdown(cx),
             State::Plain(ref mut t) => Pin::new(t).poll_shutdown(cx),
         }
@@ -240,6 +245,7 @@ impl Read for Stream {
         ) -> Poll<io::Result<usize>> {
         let pin = self.get_mut();
         match pin.state {
+            #[cfg(feature = "rustls")]
             State::Tls(ref mut t) => Pin::new(t).poll_read(cx, buf),
             State::Plain(ref mut t) => Pin::new(t).poll_read(cx, buf),
         }
@@ -254,6 +260,7 @@ impl AsyncRead for Stream {
     ) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
+            #[cfg(feature = "rustls")]
             State::Tls(ref mut t) => Pin::new(t).poll_read(cx, buf),
             State::Plain(ref mut t) => Pin::new(t).poll_read(cx, buf),
         }
