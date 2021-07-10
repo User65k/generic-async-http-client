@@ -14,6 +14,8 @@ impl<'a> TryFrom<&'a str> for HeaderName {
         return Ok(HeaderName(imp::HeaderName::from_string(t.to_string())?));
         #[cfg(feature = "use_hyper")]
         return Ok(HeaderName(imp::HeaderName::try_from(t)?));
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return Err(imp::Error{})
     }
 }
 impl<'a> TryFrom<&'a [u8]> for HeaderName {
@@ -24,6 +26,8 @@ impl<'a> TryFrom<&'a [u8]> for HeaderName {
         return Ok(HeaderName(imp::HeaderName::from_bytes(t.to_vec())?));
         #[cfg(feature = "use_hyper")]
         return Ok(HeaderName(imp::HeaderName::from_bytes(t)?));
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return Err(imp::Error{})
     }
 }
 impl TryFrom<Vec<u8>> for HeaderName {
@@ -34,6 +38,8 @@ impl TryFrom<Vec<u8>> for HeaderName {
         return Ok(HeaderName(imp::HeaderName::from_bytes(t)?));
         #[cfg(feature = "use_hyper")]
         return Ok(HeaderName(imp::HeaderName::from_bytes(&t)?));
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return Err(imp::Error{})
     }
 }
 
@@ -57,6 +63,8 @@ impl AsRef<str> for HeaderName {
         return self.0.as_ref();
         #[cfg(feature = "use_async_h1")]
         return self.0.as_str();
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return "";
     }
 }
 
@@ -67,6 +75,8 @@ impl AsRef<[u8]> for HeaderName {
         return self.0.as_ref();
         #[cfg(feature = "use_async_h1")]
         return self.0.as_str().as_bytes();
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return &[];
     }
 }
 
@@ -77,6 +87,8 @@ impl Borrow<str> for HeaderName {
         return self.as_ref();
         #[cfg(feature = "use_async_h1")]
         return self.0.as_str();
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return "";
     }
 }
 impl PartialEq<str> for HeaderName {
@@ -86,6 +98,8 @@ impl PartialEq<str> for HeaderName {
         return self.0 == other;
         #[cfg(feature = "use_async_h1")]
         return self.0.as_str() == other;
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return false;
     }
 }
 
@@ -107,6 +121,8 @@ impl<'a> TryFrom<&'a [u8]> for HeaderValue {
         return Ok(HeaderValue(imp::HeaderValue::from_bytes(t.to_vec())?));
         #[cfg(feature = "use_hyper")]
         return Ok(HeaderValue(imp::HeaderValue::from_bytes(t)?));
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return Err(imp::Error{})
     }
 }
 
@@ -136,6 +152,8 @@ impl AsRef<[u8]> for HeaderValue {
         return self.0.as_ref();
         #[cfg(feature = "use_async_h1")]
         return self.0.as_str().as_bytes();
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return &[];
     }
 }
 impl std::convert::TryInto<String> for HeaderValue {
@@ -161,6 +179,8 @@ impl PartialEq<str> for HeaderValue {
         return self.0 == other.as_bytes();
         #[cfg(feature = "use_async_h1")]
         return self.0.as_str() == other;
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return false;
     }
 }
 
@@ -171,5 +191,7 @@ impl PartialEq<[u8]> for HeaderValue {
         return self.0 == other;
         #[cfg(feature = "use_async_h1")]
         return self.as_ref() == other;
+        #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
+        return false;
     }
 }

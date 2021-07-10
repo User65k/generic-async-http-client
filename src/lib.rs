@@ -9,11 +9,16 @@ to specify what implementation should be used.
 And if there is a Proxy. If not specified auto detection is performed by looking at HTTP_PROXY.
 
 You need to specify via features what crates are used to the actual work.
-- hyper (and tokio)
-- async-h1 (and async-std)
+
+- `use_hyper` (and tokio)
+- `use_async_h1` (and async-std)
+
+Without anything specified you will end up with *No HTTP backend was selected*.
+
 */
 #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
-compile_error!("You need to specify a feature for the HTTP Lib to be used");
+#[path = "dummy/mod.rs"]
+mod imp;
 
 #[cfg(any(feature = "use_hyper", feature = "use_async_h1"))]
 mod tcp;
