@@ -1,5 +1,6 @@
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Crates.io][crates-badge]][crates-url]
+[![Released API docs](https://docs.rs/generic-async-http-client/badge.svg)](https://docs.rs/generic-async-http-client)
 [![MIT licensed][mit-badge]][mit-url]
 
 [crates-badge]: https://img.shields.io/crates/v/generic-async-http-client.svg
@@ -26,6 +27,8 @@ You need to specify via features what crates are used to the actual work.
 |use_async_h1|Use [async_h1](https://crates.io/crates/async_h1) for HTTP|
 |rustls|Add support for HTTPS via [rustls](https://crates.io/crates/rustls)|
 |proxies|Add support for Socks5 and HTTP proxy|
+|hyper_native_tls|Use [hyper](https://crates.io/crates/hyper) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)|
+|async_native_tls|Use [async_h1](https://crates.io/crates/async_h1) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)|
 
 Without anything specified you will end up with *No HTTP backend was selected*.
 If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the apropriate features.
@@ -52,7 +55,6 @@ Also for http clients: there should be a way to add a proxy for all libs that us
 
 # Plans
 
-1. Add native_tls as a TLS choice
 2. Add Sessions - to make multiple requests more efficient
 3. Add a cookie jar for the sessions
 4. Alow a Body to be streamed from a server

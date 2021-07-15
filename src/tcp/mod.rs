@@ -32,12 +32,16 @@ use async_rustls::{rustls::ClientConfig, webpki::{DNSNameRef}, TlsConnector, cli
 use tokio_rustls::{rustls::{ClientConfig, Session}, webpki::{DNSNameRef}, TlsConnector, client::TlsStream};
 #[cfg(feature = "rustls")]
 use webpki_roots::TLS_SERVER_ROOTS;
+#[cfg(feature = "async_native_tls")]
+use async_native_tls::{TlsConnector, TlsStream};
+#[cfg(feature = "hyper_native_tls")]
+use tokio_native_tls::{TlsConnector, TlsStream, native_tls::TlsConnector as NTlsConnector};
 
 pub struct Stream {
     state: State
 }
 enum State{
-    #[cfg(feature = "rustls")]
+    #[cfg(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls"))]
     Tls(TlsStream<TcpStream>),
     Plain(TcpStream),
 }
@@ -164,7 +168,28 @@ impl Stream {
                     },
                 };
             }
-            #[cfg(not(any(feature = "rustls")))]
+            #[cfg(any(feature = "hyper_native_tls", feature = "async_native_tls"))]
+            {
+                #[cfg(feature = "async_native_tls")]
+                let tlsc: TlsConnector = TlsConnector::new();
+                #[cfg(feature = "hyper_native_tls")]
+                let tlsc: TlsConnector = NTlsConnector::builder().build().map_err(|e|io::Error::new(io::ErrorKind::InvalidInput,e))?.into();
+                
+                let tls = tlsc.connect(host, tcp).await;
+                return match tls {
+                    Ok(stream) => {
+                        log::trace!("wrapped TLS");
+                        Ok(Stream {
+                            state: State::Tls(stream)
+                        })
+                    },
+                    Err(e) => {
+                        log::error!("TLS Handshake: {}", e);
+                        Err(io::Error::new(io::ErrorKind::InvalidInput,e))
+                    },
+                };
+            }
+            #[cfg(not(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls")))]
             return Err(io::Error::new(io::ErrorKind::InvalidInput,"no TLS backend available"));
         }else{
             return Ok(Stream {
@@ -201,7 +226,7 @@ impl Write for Stream {
         ) -> Poll<io::Result<usize>> {
             let pin = self.get_mut();
             match pin.state {
-                #[cfg(feature = "rustls")]
+                #[cfg(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls"))]
                 State::Tls(ref mut t) => Pin::new(t).poll_write(cx, buf),
                 State::Plain(ref mut t) => Pin::new(t).poll_write(cx, buf),
             }
@@ -210,7 +235,7 @@ impl Write for Stream {
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
-            #[cfg(feature = "rustls")]
+            #[cfg(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls"))]
             State::Tls(ref mut t) => Pin::new(t).poll_flush(cx),
             State::Plain(ref mut t) => Pin::new(t).poll_flush(cx),
         }
@@ -220,7 +245,7 @@ impl Write for Stream {
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
-            #[cfg(feature = "rustls")]
+            #[cfg(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls"))]
             State::Tls(ref mut t) => Pin::new(t).poll_close(cx),
             State::Plain(ref mut t) => Pin::new(t).poll_close(cx),
         }
@@ -230,7 +255,7 @@ impl Write for Stream {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::result::Result<(), std::io::Error>> {
         let pin = self.get_mut();
         match pin.state {
-            #[cfg(feature = "rustls")]
+            #[cfg(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls"))]
             State::Tls(ref mut t) => Pin::new(t).poll_shutdown(cx),
             State::Plain(ref mut t) => Pin::new(t).poll_shutdown(cx),
         }
@@ -245,7 +270,7 @@ impl Read for Stream {
         ) -> Poll<io::Result<usize>> {
         let pin = self.get_mut();
         match pin.state {
-            #[cfg(feature = "rustls")]
+            #[cfg(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls"))]
             State::Tls(ref mut t) => Pin::new(t).poll_read(cx, buf),
             State::Plain(ref mut t) => Pin::new(t).poll_read(cx, buf),
         }
@@ -260,7 +285,7 @@ impl AsyncRead for Stream {
     ) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
-            #[cfg(feature = "rustls")]
+            #[cfg(any(feature = "rustls", feature = "hyper_native_tls", feature = "async_native_tls"))]
             State::Tls(ref mut t) => Pin::new(t).poll_read(cx, buf),
             State::Plain(ref mut t) => Pin::new(t).poll_read(cx, buf),
         }
