@@ -1,4 +1,5 @@
-use std::{sync::Arc};
+#[cfg(feature = "rustls")]
+use std::{convert::TryFrom, sync::Arc};
 use std::io;
 use std::pin::Pin;
 use std::task::{Poll, Context};
@@ -16,7 +17,7 @@ use http::connect_via_http_prx;
 use async_std::{net::TcpStream,
     io::{Read, Write}
 };
-#[cfg(feature = "use_async_h1")]
+#[cfg(all(feature = "use_async_h1", feature="proxies"))]
 use http_types::Url as Uri;
 #[cfg(feature = "use_hyper")]
 use tokio::{
@@ -24,12 +25,14 @@ use tokio::{
     io::{ReadBuf, AsyncRead, AsyncWrite as Write}
 };
 #[cfg(feature = "use_hyper")]
-use hyper::{client::connect::Connection, http::uri::{Uri}};
+use hyper::{client::connect::Connection};
+#[cfg(all(feature = "use_hyper", feature="proxies"))]
+use hyper::http::uri::Uri;
 
 #[cfg(all(feature = "rustls", feature = "use_async_h1"))]
-use async_rustls::{rustls::ClientConfig, webpki::{DNSNameRef}, TlsConnector, client::TlsStream};
+use futures_rustls::{rustls::{ClientConfig, ServerName, RootCertStore, OwnedTrustAnchor}, TlsConnector, client::TlsStream};
 #[cfg(all(feature = "rustls", feature = "use_hyper"))]
-use tokio_rustls::{rustls::{ClientConfig, Session}, webpki::{DNSNameRef}, TlsConnector, client::TlsStream};
+use tokio_rustls::{rustls::{ClientConfig, ServerName, RootCertStore, OwnedTrustAnchor}, TlsConnector, client::TlsStream};
 #[cfg(feature = "rustls")]
 use webpki_roots::TLS_SERVER_ROOTS;
 #[cfg(feature = "async_native_tls")]
@@ -86,7 +89,6 @@ pub async fn connect_w_proxy(host: &str, port: u16, tls: bool) -> io::Result<Tcp
         None => TcpStream::connect((host, port)).await,
         Some(proxy) => {
             let url = proxy.parse::<Uri>().map_err(|e|io::Error::new(io::ErrorKind::InvalidInput,e))?;
-
             #[cfg(feature = "use_hyper")]
             let (phost, scheme) = (url.host(), url.scheme_str());
             #[cfg(feature = "use_async_h1")]
@@ -143,15 +145,25 @@ impl Stream {
         if tls {
             #[cfg(feature = "rustls")]
             {
-                let domain = DNSNameRef::try_from_ascii_str(host)
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,e))?;
-                let mut config = ClientConfig::default();
+                let domain = ServerName::try_from(host)
+                    .map_err(|_e| io::Error::new(io::ErrorKind::InvalidInput,"Invalid DNS name"))?;
+                
+                    
+                let mut root_store = RootCertStore::empty();
+                root_store.add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(|ta| {
+                    OwnedTrustAnchor::from_subject_spki_name_constraints(
+                        ta.subject,
+                        ta.spki,
+                        ta.name_constraints,
+                    )
+                }));
+
+                let mut config = ClientConfig::builder().with_safe_defaults().with_root_certificates(root_store).with_no_client_auth();
 
                 #[cfg(feature = "use_hyper")]
                 config.alpn_protocols.push(b"h2".to_vec());
                 config.alpn_protocols.push(b"http/1.1".to_vec());
 
-                config.root_store.add_server_trust_anchors(&TLS_SERVER_ROOTS);
                 let tls = TlsConnector::from(Arc::new(config))
                     .connect(domain, tcp)
                     .await;
@@ -202,13 +214,14 @@ impl Stream {
 #[cfg(feature = "use_hyper")]
 impl Connection for Stream {
     fn connected(&self) -> hyper::client::connect::Connected {
+        #[cfg_attr(not(feature = "rustls"), allow(unused_mut))]
         let mut c = hyper::client::connect::Connected::new();
 
         match self.state {
             #[cfg(feature = "rustls")]
             State::Tls(ref t) => {
                 let (_, s) = t.get_ref();
-                if Some(&b"h2"[..]) == s.get_alpn_protocol() {
+                if Some(&b"h2"[..]) == s.alpn_protocol() {
                     c = c.negotiated_h2();
                 }
             },
