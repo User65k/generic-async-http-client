@@ -2,28 +2,32 @@ use std::str::FromStr;
 
 use serde::Serialize;
 
-use hyper::{Client, Error as HyperError, Response,
-    header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE},
-    http::{Error as HTTPError, request::Builder,
-        method::{Method, InvalidMethod},
-        uri::{InvalidUri, PathAndQuery, Builder as UriBuilder}
-    }
+pub use hyper::{
+    header::{HeaderName, HeaderValue},
+    Body,
 };
-pub use hyper::{Body,
-    header::{HeaderName, HeaderValue}};
+use hyper::{
+    header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE},
+    http::{
+        method::{InvalidMethod, Method},
+        request::Builder,
+        uri::{Builder as UriBuilder, InvalidUri, PathAndQuery},
+        Error as HTTPError,
+    },
+    Client, Error as HyperError, Response,
+};
 use std::mem::take;
 
 mod connector;
 use connector::Connector;
 
-
 #[derive(Debug)]
 pub struct Req {
     req: Builder,
-    body: Body
+    body: Body,
 }
 pub struct Resp {
-    resp: Response<Body>
+    resp: Response<Body>,
 }
 
 impl Req {
@@ -53,7 +57,7 @@ impl Req {
 
         Req {
             req,
-            body: Body::empty()
+            body: Body::empty(),
         }
     }
     pub async fn send_request(self) -> Result<Resp, Error> {
@@ -63,7 +67,7 @@ impl Req {
         let client = Client::builder().build::<_, Body>(connector);
 
         let resp = client.request(req).await?;
-        Ok(Resp{resp})
+        Ok(Resp { resp })
     }
     pub fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
         let bytes = serde_json::to_vec(&json)?;
@@ -74,15 +78,18 @@ impl Req {
     pub fn form<T: Serialize + ?Sized>(&mut self, data: &T) -> Result<(), Error> {
         let query = serde_urlencoded::to_string(data)?;
         let bytes = query.into_bytes();
-        self.set_header(CONTENT_TYPE, HeaderValue::from_static("application/x-www-form-urlencoded"))?;
+        self.set_header(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/x-www-form-urlencoded"),
+        )?;
         self.body = Body::from(bytes);
         Ok(())
     }
     pub fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), Error> {
         let query = serde_qs::to_string(&query)?;
         let old = self.req.uri_ref().expect("no uri");
-        
-        let mut p_and_p = String::with_capacity(old.path().len()+query.len()+1);
+
+        let mut p_and_p = String::with_capacity(old.path().len() + query.len() + 1);
         p_and_p.push_str(old.path());
         p_and_p.push('?');
         p_and_p.push_str(&query);
@@ -90,10 +97,10 @@ impl Req {
         let path_and_query = PathAndQuery::from_str(&p_and_p)?;
 
         let new = UriBuilder::new()
-        .scheme(old.scheme_str().unwrap())
-        .authority(old.authority().unwrap().as_str())
-        .path_and_query(path_and_query)
-        .build()?;
+            .scheme(old.scheme_str().unwrap())
+            .authority(old.authority().unwrap().as_str())
+            .path_and_query(path_and_query)
+            .build()?;
 
         self.req = take(&mut self.req).uri(new);
         Ok(())
@@ -103,7 +110,7 @@ impl Req {
         Ok(())
     }
     pub fn set_header(&mut self, name: HeaderName, value: HeaderValue) -> Result<(), Error> {
-        self.req.headers_mut().map(|hm|hm.insert(name, value));
+        self.req.headers_mut().map(|hm| hm.insert(name, value));
         Ok(())
     }
     pub fn add_header(&mut self, name: HeaderName, value: HeaderValue) -> Result<(), Error> {
@@ -111,9 +118,9 @@ impl Req {
         Ok(())
     }
 }
-use hyper::body::{to_bytes, aggregate};
-use serde::de::DeserializeOwned;
 use hyper::body::Buf;
+use hyper::body::{aggregate, to_bytes};
+use serde::de::DeserializeOwned;
 impl Resp {
     pub fn status(&self) -> u16 {
         self.resp.status().as_u16()
@@ -152,7 +159,7 @@ pub enum Error {
     InvalidHeaderValue(InvalidHeaderValue),
     InvalidHeaderName(InvalidHeaderName),
     InvalidUri(InvalidUri),
-    Urlencoded(serde_urlencoded::ser::Error)
+    Urlencoded(serde_urlencoded::ser::Error),
 }
 impl std::error::Error for Error {}
 use std::fmt;

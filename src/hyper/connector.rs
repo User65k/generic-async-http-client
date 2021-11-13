@@ -1,8 +1,14 @@
-use std::{future::Future, pin::Pin, task::{Context, Poll}};
-use hyper::{service::Service, http::uri::{Scheme, Uri}};
+use hyper::{
+    http::uri::{Scheme, Uri},
+    service::Service,
+};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use std::io;
-
 
 use crate::tcp::Stream;
 
@@ -11,9 +17,7 @@ pub struct Connector;
 
 impl Connector {
     pub fn new() -> Connector {
-        Connector {
-        
-        }
+        Connector {}
     }
 }
 
@@ -21,9 +25,7 @@ impl Service<Uri> for Connector {
     type Response = Stream;
     type Error = std::io::Error;
     // We can't "name" an `async` generated future.
-    type Future = Pin<Box<
-        dyn Future<Output = Result<Self::Response, Self::Error>> + Send
-    >>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         // This connector is always ready, but others might not be.
@@ -35,7 +37,12 @@ impl Service<Uri> for Connector {
             let tls = match dst.scheme_str() {
                 Some("https") => true,
                 Some("http") => false,
-                _ => return Err(io::Error::new(io::ErrorKind::InvalidInput, "scheme must be http or https"))
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "scheme must be http or https",
+                    ))
+                }
             };
             let host = match dst.host() {
                 Some(s) => s,

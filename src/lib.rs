@@ -41,13 +41,12 @@ pub use header::{HeaderName, HeaderValue};
 pub use imp::Error;
 use std::convert::TryInto;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 //use futures::{Future, FutureExt};
 //use std::task::Poll;
 //use std::pin::Pin;
-
 
 /// Builds a HTTP request, poll it to query
 pub struct Request(imp::Req);
@@ -78,7 +77,7 @@ impl Request {
         Request(imp::Req::options(uri))
     }
     pub fn new(meth: &str, uri: &str) -> Result<Request, Error> {
-        imp::Req::new(meth, uri).map(|r|Request(r))
+        imp::Req::new(meth, uri).map(|r| Request(r))
     }
     /// Add a JSON boby to the request
     pub fn json<T: Serialize + ?Sized>(mut self, json: &T) -> Result<Self, Error> {
@@ -102,26 +101,28 @@ impl Request {
     }
     /// Add a single header to the request
     /// If the map did have this key present, the new value is associated with the key
-    pub fn set_header(mut self,
+    pub fn set_header(
+        mut self,
         name: impl TryInto<HeaderName, Error = imp::Error>,
-        value: impl TryInto<HeaderValue, Error = imp::Error>) -> Result<Self, Error> {
-
-        let val :HeaderValue = value.try_into()?;
-        let name :HeaderName = name.try_into()?;
+        value: impl TryInto<HeaderValue, Error = imp::Error>,
+    ) -> Result<Self, Error> {
+        let val: HeaderValue = value.try_into()?;
+        let name: HeaderName = name.try_into()?;
         self.0.set_header(name.into(), val.into())?;
-        
+
         Ok(self)
     }
     /// Add a single header to the request
     /// If the map did have this key present, the new value is pushed to the end of the list of values
-    pub fn add_header(mut self,
+    pub fn add_header(
+        mut self,
         name: impl TryInto<HeaderName, Error = imp::Error>,
-        value: impl TryInto<HeaderValue, Error = imp::Error>) -> Result<Self, Error> {
-
-        let val :HeaderValue = value.try_into()?;
-        let name :HeaderName = name.try_into()?;
+        value: impl TryInto<HeaderValue, Error = imp::Error>,
+    ) -> Result<Self, Error> {
+        let val: HeaderValue = value.try_into()?;
+        let name: HeaderName = name.try_into()?;
         self.0.add_header(name.into(), val.into())?;
-        
+
         Ok(self)
     }
     /*
@@ -132,11 +133,11 @@ impl Request {
 
     /// Send the request to the webserver
     pub async fn exec(self) -> Result<Response, Error> {
-        let r = self.0.send_request().await.map(|r|Response(r))?;
+        let r = self.0.send_request().await.map(|r| Response(r))?;
 
         if r.status_code() > 299 && r.status_code() < 399 {
-            if let Some(loc) = r.header("Location").and_then(|l|l.try_into().ok()) {
-                let _l : String = loc;
+            if let Some(loc) = r.header("Location").and_then(|l| l.try_into().ok()) {
+                let _l: String = loc;
                 //TODO redirect
             }
         }
@@ -163,7 +164,7 @@ impl Future for Request2{
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         println!("poll");
         let pin = self.get_mut();
-        
+
         match pin.state.get_mut() {
             State::Build(req) => {
                 let fut = req.send_request();
@@ -207,15 +208,18 @@ impl Response {
         self.0.string().await
     }
     /// If there are multiple values associated with the key, then the first one is returned.
-    pub fn header(&self, name: impl TryInto<HeaderName, Error = imp::Error>) -> Option<&HeaderValue> {
+    pub fn header(
+        &self,
+        name: impl TryInto<HeaderName, Error = imp::Error>,
+    ) -> Option<&HeaderValue> {
         match name.try_into() {
             Err(_) => None,
-            Ok(name) => self.0.get_header(name.into()).map(|v|v.into())
+            Ok(name) => self.0.get_header(name.into()).map(|v| v.into()),
         }
     }
     /// Each key will be yielded once per associated value. So, if a key has 3 associated values, it will be yielded 3 times.
-    pub fn headers(&self) -> impl Iterator<Item = (&HeaderName,&HeaderValue)> {
-        self.0.header_iter().map(|(n,v)|(n.into(),v.into()))
+    pub fn headers(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
+        self.0.header_iter().map(|(n, v)| (n.into(), v.into()))
     }
     /*
     TODO cookie
@@ -226,55 +230,61 @@ impl Response {
 
 impl std::fmt::Debug for Response {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let h: Vec<(&HeaderName,&HeaderValue)> = self.headers().collect();
+        let h: Vec<(&HeaderName, &HeaderValue)> = self.headers().collect();
         write!(f, "HTTP {} Header: {:?}", self.status_code(), h)
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "use_async_h1")]
-    use async_std::{task::{spawn},
-        net::{TcpListener, TcpStream},
+    use async_std::{
         io::prelude::{ReadExt, WriteExt},
+        net::{TcpListener, TcpStream},
+        task::spawn,
     };
     #[cfg(feature = "use_async_h1")]
-    fn block_on(fut: impl futures::Future<Output=Result<(), Box<dyn std::error::Error>>>)
-     -> Result<(), Box<dyn std::error::Error>>{
+    fn block_on(
+        fut: impl futures::Future<Output = Result<(), Box<dyn std::error::Error>>>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         async_std::task::block_on(fut)
     }
     //use futures::{AsyncWriteExt};
     #[cfg(feature = "use_hyper")]
     use tokio::{
-        net::{TcpListener, TcpStream},
         io::{AsyncReadExt, AsyncWriteExt},
-        runtime::Builder
+        net::{TcpListener, TcpStream},
+        runtime::Builder,
     };
     #[cfg(feature = "use_hyper")]
-    fn block_on(fut: impl futures::Future<Output=Result<(), Box<dyn std::error::Error>>>)
-     -> Result<(), Box<dyn std::error::Error>>{
-        Builder::new_current_thread().enable_all().build().expect("rt").block_on(fut)
+    fn block_on(
+        fut: impl futures::Future<Output = Result<(), Box<dyn std::error::Error>>>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("rt")
+            .block_on(fut)
     }
     #[cfg(feature = "use_hyper")]
-    fn spawn<T>(fut: T)
-    -> impl futures::Future<Output=T::Output>
+    fn spawn<T>(fut: T) -> impl futures::Future<Output = T::Output>
     where
         T: futures::Future + Send + 'static,
         T::Output: Send + 'static,
     {
-        let jh= tokio::task::spawn(fut);
-        async {
-            jh.await.expect("spawn failed")
-        }        
+        let jh = tokio::task::spawn(fut);
+        async { jh.await.expect("spawn failed") }
     }
 
     async fn assert_stream(stream: &mut TcpStream, should_be: &[u8]) -> std::io::Result<()> {
         let l = should_be.len();
         let mut req: Vec<u8> = vec![0; l];
         stream.read_exact(req.as_mut_slice()).await?;
-        if req!=should_be {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "req not as expected"))
+        if req != should_be {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "req not as expected",
+            ));
         }
         return Ok(());
     }
@@ -287,11 +297,21 @@ mod tests {
             let mut output = Vec::with_capacity(1);
 
             #[cfg(feature = "use_hyper")]
-            assert_stream(&mut stream, b"GET / HTTP/1.1\r\nhost: 127.0.0.1:4657\r\n\r\n").await?;
+            assert_stream(
+                &mut stream,
+                b"GET / HTTP/1.1\r\nhost: 127.0.0.1:4657\r\n\r\n",
+            )
+            .await?;
             #[cfg(feature = "use_async_h1")]
-            assert_stream(&mut stream, b"GET / HTTP/1.1\r\nhost: 127.0.0.1:4657\r\ncontent-length: 0\r\n\r\n").await?;
+            assert_stream(
+                &mut stream,
+                b"GET / HTTP/1.1\r\nhost: 127.0.0.1:4657\r\ncontent-length: 0\r\n\r\n",
+            )
+            .await?;
 
-            stream.write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 3\r\n\r\nabc").await?;
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 3\r\n\r\nabc")
+                .await?;
             stream.read(&mut output).await?;
             Ok(true)
         }
@@ -300,25 +320,32 @@ mod tests {
             let t = spawn(server(listener));
             let r = Request::get("http://127.0.0.1:4657");
             let mut aw = r.exec().await?;
-            
+
             assert_eq!(aw.status_code(), 200, "wrong status");
             assert_eq!(aw.text().await?, "abc", "wrong text");
-            assert!(t.await?,"not cool");
+            assert!(t.await?, "not cool");
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
     }
     #[test]
     fn header() {
         async fn server(listener: TcpListener) -> std::io::Result<bool> {
             let (mut stream, _) = listener.accept().await?;
             //let mut output = Vec::with_capacity(2);
-            
+
             #[cfg(feature = "use_async_h1")]
             assert_stream(&mut stream, b"PUT / HTTP/1.1\r\nhost: 127.0.0.1:5657\r\ncontent-length: 0\r\ncookies: jo\r\n\r\n").await?;
             #[cfg(feature = "use_hyper")]
-            assert_stream(&mut stream, b"PUT / HTTP/1.1\r\ncookies: jo\r\nhost: 127.0.0.1:5657\r\n\r\n").await?;
+            assert_stream(
+                &mut stream,
+                b"PUT / HTTP/1.1\r\ncookies: jo\r\nhost: 127.0.0.1:5657\r\n\r\n",
+            )
+            .await?;
 
-            stream.write_all(b"HTTP/1.1 200 OK\r\ntest: a\r\ntest: 1\r\n\r\n").await?;
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\ntest: a\r\ntest: 1\r\n\r\n")
+                .await?;
             //stream.read(&mut output).await?;
             stream.flush().await?;
             Ok(true)
@@ -335,23 +362,35 @@ mod tests {
                 return Ok(());
             }
             let resp = resp.expect("request failed");
-            
-            assert_eq!(resp.header("test").expect("no test header"), "a", "wrong first header");
 
-            let mut h = resp.headers().filter(|(n,_v)|*n!="date");//async h1 adds date
+            assert_eq!(
+                resp.header("test").expect("no test header"),
+                "a",
+                "wrong first header"
+            );
+
+            let mut h = resp.headers().filter(|(n, _v)| *n != "date"); //async h1 adds date
             let (n, v) = h.next().expect("two header missing");
-            assert_eq!(<header::HeaderName as AsRef<[u8]>>::as_ref(n), &b"test"[..], "wrong 1st header");
+            assert_eq!(
+                <header::HeaderName as AsRef<[u8]>>::as_ref(n),
+                &b"test"[..],
+                "wrong 1st header"
+            );
             assert_eq!(v, "a", "wrong 1st header");
             let (n, v) = h.next().expect("one header missing");
-            assert_eq!(<header::HeaderName as AsRef<str>>::as_ref(n), "test", "wrong 2nd header");
+            assert_eq!(
+                <header::HeaderName as AsRef<str>>::as_ref(n),
+                "test",
+                "wrong 2nd header"
+            );
             assert_eq!(v, "1", "wrong 2nd header");
 
             let fin = h.next();
             assert!(fin.is_none(), "to much headers {:?}", fin);
-            
 
-            assert!(t.await?,"not cool");
+            assert!(t.await?, "not cool");
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
     }
 }

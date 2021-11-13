@@ -1,14 +1,12 @@
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::convert::TryFrom;
 
 //TODO maybe add some mock stuff for testing
 
 #[derive(Debug)]
-pub struct Req {
-}
-pub struct Resp {
-}
+pub struct Req {}
+pub struct Resp {}
 pub struct Body(Vec<u8>);
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct HeaderName(String);
@@ -17,32 +15,31 @@ pub struct HeaderValue(Vec<u8>);
 
 impl Req {
     pub fn get(uri: &str) -> Req {
-        Req::new("GET",uri).unwrap()
+        Req::new("GET", uri).unwrap()
     }
     pub fn post(uri: &str) -> Req {
-        Req::new("POST",uri).unwrap()
+        Req::new("POST", uri).unwrap()
     }
     pub fn put(uri: &str) -> Req {
-        Req::new("PUT",uri).unwrap()
+        Req::new("PUT", uri).unwrap()
     }
     pub fn delete(uri: &str) -> Req {
-        Req::new("DELETE",uri).unwrap()
+        Req::new("DELETE", uri).unwrap()
     }
     pub fn head(uri: &str) -> Req {
-        Req::new("HEAD",uri).unwrap()
+        Req::new("HEAD", uri).unwrap()
     }
     pub fn options(uri: &str) -> Req {
-        Req::new("OPTIONS",uri).unwrap()
+        Req::new("OPTIONS", uri).unwrap()
     }
     pub fn new(meth: &str, uri: &str) -> Result<Req, Error> {
         log::debug!("{} {}", meth, uri);
-        Ok(Req {
-        })
+        Ok(Req {})
     }
     pub async fn send_request(self) -> Result<Resp, Error> {
         eprintln!("No HTTP backend was selected");
         println!("No HTTP backend was selected");
-        Err(Error{})
+        Err(Error {})
     }
     pub fn json<T: Serialize + ?Sized>(&mut self, _json: &T) -> Result<(), Error> {
         Ok(())
@@ -71,19 +68,19 @@ impl Resp {
         "not implemented"
     }
     pub async fn json<D: DeserializeOwned>(&mut self) -> Result<D, Error> {
-        Err(Error{})
+        Err(Error {})
     }
     pub async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
-        Err(Error{})
+        Err(Error {})
     }
     pub async fn string(&mut self) -> Result<String, Error> {
-        Err(Error{})
+        Err(Error {})
     }
     pub fn get_header(&self, _name: HeaderName) -> Option<&HeaderValue> {
         None
     }
     pub fn header_iter(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
-        vec!().into_iter()
+        vec![].into_iter()
     }
 }
 

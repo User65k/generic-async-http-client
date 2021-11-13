@@ -1,16 +1,19 @@
-use async_std::io;
-use http_types::{Method, Request, Response};
-use std::{str::FromStr};
-pub use http_types::{Body, headers::{HeaderName, HeaderValue, ToHeaderValues, HeaderValues, Iter as HttpHeaderIter}};
-use serde::Serialize;
 use crate::tcp::Stream;
+use async_std::io;
+pub use http_types::{
+    headers::{HeaderName, HeaderValue, HeaderValues, Iter as HttpHeaderIter, ToHeaderValues},
+    Body,
+};
+use http_types::{Method, Request, Response};
+use serde::Serialize;
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct Req {
-    req: Request
+    req: Request,
 }
 pub struct Resp {
-    resp: Response
+    resp: Response,
 }
 
 impl Req {
@@ -37,15 +40,13 @@ impl Req {
     }
     fn init(method: Method, uri: &str) -> Req {
         let req = Request::new(method, uri);
-        Req {
-            req
-        }
+        Req { req }
     }
     pub async fn send_request(self) -> Result<Resp, Error> {
         let tls = match self.req.url().scheme() {
             "https" => true,
             "http" => false,
-            _ => return Err(Error::Scheme)
+            _ => return Err(Error::Scheme),
         };
 
         let host = match self.req.host() {
@@ -53,17 +54,19 @@ impl Req {
             Some(host) => host,
         };
         let port = match self.req.url().port() {
-            None => if tls {
+            None => {
+                if tls {
                     443
-                }else{
+                } else {
                     80
-                },
+                }
+            }
             Some(port) => port,
         };
         let transport = Stream::connect(host, port, tls).await?;
-        
+
         let resp = async_h1::connect(transport, self.req).await?;
-        Ok(Resp{resp})
+        Ok(Resp { resp })
     }
     pub fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
         self.req.set_body(Body::from_json(&json)?);
@@ -108,7 +111,7 @@ impl Resp {
         Ok(self.resp.body_string().await?)
     }
     pub fn get_header(&self, name: HeaderName) -> Option<&HeaderValue> {
-        self.resp.header(name).and_then(|v|v.iter().next())
+        self.resp.header(name).and_then(|v| v.iter().next())
     }
     pub fn header_iter(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
         HeaderIter::new(self.resp.iter())
@@ -118,14 +121,14 @@ impl Resp {
 pub struct HeaderIter<'a> {
     iter: HttpHeaderIter<'a>,
     current: Option<(&'a HeaderName, &'a HeaderValues)>,
-    index: usize
+    index: usize,
 }
 impl HeaderIter<'_> {
     pub fn new(iter: HttpHeaderIter) -> HeaderIter {
         HeaderIter {
             iter,
             current: None,
-            index: 0
+            index: 0,
         }
     }
 }
@@ -133,11 +136,10 @@ impl<'a> Iterator for HeaderIter<'a> {
     type Item = (&'a HeaderName, &'a HeaderValue);
 
     fn next(&mut self) -> Option<Self::Item> {
-
-        if let Some((n,v)) = self.current {
+        if let Some((n, v)) = self.current {
             self.index += 1;
             if let Some(val) = v.get(self.index) {
-                return Some((n,val));
+                return Some((n, val));
             }
         }
 
@@ -155,7 +157,7 @@ pub enum Error {
     Io(io::Error),
     Http(http_types::Error),
     UndefinedHost,
-    Scheme
+    Scheme,
 }
 impl std::error::Error for Error {}
 use std::fmt;
