@@ -40,7 +40,6 @@ pub use body::Body;
 pub use header::{HeaderName, HeaderValue};
 pub use imp::Error;
 use std::convert::TryInto;
-use std::fmt::Display;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;

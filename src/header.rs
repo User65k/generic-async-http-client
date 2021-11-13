@@ -8,6 +8,7 @@ use crate::imp;
 pub struct HeaderName(imp::HeaderName);
 impl<'a> TryFrom<&'a str> for HeaderName {
     type Error = imp::Error;
+    #[cfg_attr(not(any(feature = "use_hyper", feature = "use_async_h1")), allow(unused_variables))]
     #[inline]
     fn try_from(t: &'a str) -> Result<HeaderName, Self::Error> {
         #[cfg(feature = "use_async_h1")]
@@ -20,6 +21,7 @@ impl<'a> TryFrom<&'a str> for HeaderName {
 }
 impl<'a> TryFrom<&'a [u8]> for HeaderName {
     type Error = imp::Error;
+    #[cfg_attr(not(any(feature = "use_hyper", feature = "use_async_h1")), allow(unused_variables))]
     #[inline]
     fn try_from(t: &'a [u8]) -> Result<Self, Self::Error> {
         #[cfg(feature = "use_async_h1")]
@@ -32,6 +34,7 @@ impl<'a> TryFrom<&'a [u8]> for HeaderName {
 }
 impl TryFrom<Vec<u8>> for HeaderName {
     type Error = imp::Error;
+    #[cfg_attr(not(any(feature = "use_hyper", feature = "use_async_h1")), allow(unused_variables))]
     #[inline]
     fn try_from(t: Vec<u8>) -> Result<Self, Self::Error> {
         #[cfg(feature = "use_async_h1")]
@@ -92,6 +95,7 @@ impl Borrow<str> for HeaderName {
     }
 }
 impl PartialEq<str> for HeaderName {
+    #[cfg_attr(not(any(feature = "use_hyper", feature = "use_async_h1")), allow(unused_variables))]
     #[inline]
     fn eq(&self, other: &str) -> bool {
         #[cfg(feature = "use_hyper")]
@@ -115,6 +119,7 @@ impl<'a> TryFrom<&'a str> for HeaderValue {
 }
 impl<'a> TryFrom<&'a [u8]> for HeaderValue {
     type Error = imp::Error;
+    #[cfg_attr(not(any(feature = "use_hyper", feature = "use_async_h1")), allow(unused_variables))]
     #[inline]
     fn try_from(t: &'a [u8]) -> Result<Self, Self::Error> {
         #[cfg(feature = "use_async_h1")]
@@ -158,6 +163,7 @@ impl AsRef<[u8]> for HeaderValue {
 }
 impl std::convert::TryInto<String> for HeaderValue {
     type Error = std::string::FromUtf8Error;
+    #[cfg_attr(feature = "use_async_h1", allow(unreachable_code))] 
     fn try_into(self) -> Result<String, Self::Error> {
         #[cfg(feature = "use_async_h1")]
         return Ok(self.0.as_str().to_string());
@@ -166,6 +172,7 @@ impl std::convert::TryInto<String> for HeaderValue {
 }
 impl std::convert::TryInto<String> for &HeaderValue {
     type Error = std::string::FromUtf8Error;
+    #[cfg_attr(feature = "use_async_h1", allow(unreachable_code))]
     fn try_into(self) -> Result<String, Self::Error> {
         #[cfg(feature = "use_async_h1")]
         return Ok(self.0.as_str().to_string());
@@ -173,6 +180,7 @@ impl std::convert::TryInto<String> for &HeaderValue {
     }
 }
 impl PartialEq<str> for HeaderValue {
+    #[cfg_attr(not(any(feature = "use_hyper", feature = "use_async_h1")), allow(unused_variables))]
     #[inline]
     fn eq(&self, other: &str) -> bool {
         #[cfg(feature = "use_hyper")]
@@ -185,6 +193,7 @@ impl PartialEq<str> for HeaderValue {
 }
 
 impl PartialEq<[u8]> for HeaderValue {
+    #[cfg_attr(not(any(feature = "use_hyper", feature = "use_async_h1")), allow(unused_variables))]
     #[inline]
     fn eq(&self, other: &[u8]) -> bool {
         #[cfg(feature = "use_hyper")]
