@@ -52,3 +52,45 @@ pub async fn connect_via_http_prx(
         format!("{}", host),
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::{assert_stream, TcpListener, spawn, block_on};
+    #[test]
+    fn http_proxy() {
+        async fn server(listener: TcpListener) -> std::io::Result<bool> {
+            let (mut stream, _) = listener.accept().await?;
+
+            assert_stream(
+                &mut stream,
+                b"CONNECT host:1234 HTTP/1.1\r\nHost: host:1234\r\n\r\n",
+            )
+            .await?;
+            stream.write_all(b"HTTP/1.1 200 Connected\r\n\r\n").await?;
+            assert_stream(
+                &mut stream,
+                b"n0ice",
+            )
+            .await?;
+
+            Ok(true)
+        }
+        block_on(async {
+            let listener = TcpListener::bind("127.0.0.1:63128").await?;
+            let t = spawn(server(listener));
+
+            let mut stream = connect_via_http_prx(
+                "host",
+                1234,
+                "127.0.0.1",
+                63128,
+            ).await?;
+            stream.write_all(b"n0ice").await?;
+
+            assert!(t.await?, "not cool");
+            Ok(())
+        })
+        .unwrap();
+    }
+}
