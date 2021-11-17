@@ -51,7 +51,7 @@ cookies = ["cookie_store"]
 proxies = []
 
 rustls = ["futures-rustls", "tokio-rustls", "webpki-roots"]
-async_std_native_tls = ["use_async_h1","async-native-tls/runtime-async-std"]
+async_native_tls = ["use_async_h1","async-native-tls/runtime-async-std"]
 #hyper_native_tls = ["use_hyper","async-native-tls/runtime-tokio"] # not yet tokio 1.0
 hyper_native_tls = ["use_hyper","tokio-native-tls"]
 

@@ -1,0 +1,20 @@
+name: hyper_native
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test hyper_native_tls
+      run: cargo test --features "hyper_native_tls,proxies" --verbose
