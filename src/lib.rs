@@ -238,26 +238,26 @@ impl std::fmt::Debug for Response {
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "use_async_h1")]
-    use async_std::{
+    pub(crate) use async_std::{
         io::prelude::{ReadExt, WriteExt},
         net::{TcpListener, TcpStream},
         task::spawn,
     };
     #[cfg(feature = "use_async_h1")]
-    fn block_on(
+    pub(crate) fn block_on(
         fut: impl futures::Future<Output = Result<(), Box<dyn std::error::Error>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         async_std::task::block_on(fut)
     }
     //use futures::{AsyncWriteExt};
     #[cfg(feature = "use_hyper")]
-    use tokio::{
+    pub(crate) use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::{TcpListener, TcpStream},
         runtime::Builder,
     };
     #[cfg(feature = "use_hyper")]
-    fn block_on(
+    pub(crate) fn block_on(
         fut: impl futures::Future<Output = Result<(), Box<dyn std::error::Error>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         Builder::new_current_thread()
@@ -267,7 +267,7 @@ mod tests {
             .block_on(fut)
     }
     #[cfg(feature = "use_hyper")]
-    fn spawn<T>(fut: T) -> impl futures::Future<Output = T::Output>
+    pub(crate) fn spawn<T>(fut: T) -> impl futures::Future<Output = T::Output>
     where
         T: futures::Future + Send + 'static,
         T::Output: Send + 'static,
@@ -276,7 +276,7 @@ mod tests {
         async { jh.await.expect("spawn failed") }
     }
 
-    async fn assert_stream(stream: &mut TcpStream, should_be: &[u8]) -> std::io::Result<()> {
+    pub(crate) async fn assert_stream(stream: &mut TcpStream, should_be: &[u8]) -> std::io::Result<()> {
         let l = should_be.len();
         let mut req: Vec<u8> = vec![0; l];
         stream.read_exact(req.as_mut_slice()).await?;
