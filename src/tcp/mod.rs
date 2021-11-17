@@ -161,6 +161,44 @@ pub async fn connect_w_proxy(host: &str, port: u16, tls: bool) -> io::Result<Tcp
     }
 }
 
+
+#[cfg(any(
+    feature = "rustls",
+    feature = "hyper_native_tls",
+    feature = "async_native_tls"
+))]
+fn get_tls_connector() -> io::Result<TlsConnector>{
+    #[cfg(feature = "rustls")]
+    {
+        let mut root_store = RootCertStore::empty();
+        root_store.add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+
+        let mut config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+
+        #[cfg(feature = "use_hyper")]
+        config.alpn_protocols.push(b"h2".to_vec());
+        config.alpn_protocols.push(b"http/1.1".to_vec());
+
+        return Ok(TlsConnector::from(Arc::new(config)));
+    }
+    #[cfg(feature = "async_native_tls")]
+    return Ok(TlsConnector::new());
+    #[cfg(feature = "hyper_native_tls")]
+    return Ok(NTlsConnector::builder()
+        .build()
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?
+        .into());
+}
+
 impl Stream {
     pub async fn connect(host: &str, port: u16, tls: bool) -> io::Result<Stream> {
         #[cfg(feature = "proxies")]
@@ -170,55 +208,13 @@ impl Stream {
         log::trace!("connected to {}:{}", host, port);
 
         if tls {
-            #[cfg(feature = "rustls")]
+            #[cfg(any(feature = "hyper_native_tls", feature = "async_native_tls", feature = "rustls"))]
             {
-                let domain = ServerName::try_from(host).map_err(|_e| {
+                #[cfg(feature = "rustls")]
+                let host = ServerName::try_from(host).map_err(|_e| {
                     io::Error::new(io::ErrorKind::InvalidInput, "Invalid DNS name")
                 })?;
-
-                let mut root_store = RootCertStore::empty();
-                root_store.add_server_trust_anchors(TLS_SERVER_ROOTS.0.iter().map(|ta| {
-                    OwnedTrustAnchor::from_subject_spki_name_constraints(
-                        ta.subject,
-                        ta.spki,
-                        ta.name_constraints,
-                    )
-                }));
-
-                let mut config = ClientConfig::builder()
-                    .with_safe_defaults()
-                    .with_root_certificates(root_store)
-                    .with_no_client_auth();
-
-                #[cfg(feature = "use_hyper")]
-                config.alpn_protocols.push(b"h2".to_vec());
-                config.alpn_protocols.push(b"http/1.1".to_vec());
-
-                let tls = TlsConnector::from(Arc::new(config))
-                    .connect(domain, tcp)
-                    .await;
-                return match tls {
-                    Ok(stream) => {
-                        log::trace!("wrapped TLS");
-                        Ok(Stream {
-                            state: State::Tls(stream),
-                        })
-                    }
-                    Err(e) => {
-                        log::error!("TLS Handshake: {}", e);
-                        Err(e)
-                    }
-                };
-            }
-            #[cfg(any(feature = "hyper_native_tls", feature = "async_native_tls"))]
-            {
-                #[cfg(feature = "async_native_tls")]
-                let tlsc: TlsConnector = TlsConnector::new();
-                #[cfg(feature = "hyper_native_tls")]
-                let tlsc: TlsConnector = NTlsConnector::builder()
-                    .build()
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?
-                    .into();
+                let tlsc = get_tls_connector()?;
 
                 let tls = tlsc.connect(host, tcp).await;
                 return match tls {
@@ -230,6 +226,9 @@ impl Stream {
                     }
                     Err(e) => {
                         log::error!("TLS Handshake: {}", e);
+                        #[cfg(feature = "rustls")]
+                        {Err(e)}
+                        #[cfg(any(feature = "hyper_native_tls", feature = "async_native_tls"))]
                         Err(io::Error::new(io::ErrorKind::InvalidInput, e))
                     }
                 };
