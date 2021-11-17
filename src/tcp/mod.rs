@@ -30,7 +30,7 @@ use tokio::{
     net::TcpStream,
 };
 
-#[cfg(feature = "async_native_tls")]
+#[cfg(any(feature = "async_native_tls",feature = "hyper_native_tls"))]
 use async_native_tls::{TlsConnector, TlsStream};
 #[cfg(all(feature = "rustls", feature = "use_async_h1"))]
 use futures_rustls::{
@@ -38,8 +38,6 @@ use futures_rustls::{
     rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore, ServerName},
     TlsConnector,
 };
-#[cfg(feature = "hyper_native_tls")]
-use tokio_native_tls::{native_tls::TlsConnector as NTlsConnector, TlsConnector, TlsStream};
 #[cfg(all(feature = "rustls", feature = "use_hyper"))]
 use tokio_rustls::{
     client::TlsStream,
@@ -190,13 +188,8 @@ fn get_tls_connector() -> io::Result<TlsConnector>{
 
         return Ok(TlsConnector::from(Arc::new(config)));
     }
-    #[cfg(feature = "async_native_tls")]
+    #[cfg(any(feature = "async_native_tls",feature = "hyper_native_tls"))]
     return Ok(TlsConnector::new());
-    #[cfg(feature = "hyper_native_tls")]
-    return Ok(NTlsConnector::builder()
-        .build()
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?
-        .into());
 }
 
 impl Stream {
