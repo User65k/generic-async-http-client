@@ -10,7 +10,7 @@ pub struct Resp {}
 pub struct Body(Vec<u8>);
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct HeaderName(String);
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HeaderValue(Vec<u8>);
 
 impl Req {
@@ -123,5 +123,10 @@ impl<'a> TryFrom<&'a str> for HeaderValue {
     #[inline]
     fn try_from(t: &'a str) -> Result<Self, Self::Error> {
         Ok(HeaderValue(t.as_bytes().to_vec()))
+    }
+}
+impl From<std::convert::Infallible> for Error {
+    fn from(_e: std::convert::Infallible) -> Self {
+        unreachable!();
     }
 }

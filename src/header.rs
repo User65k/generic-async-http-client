@@ -119,7 +119,7 @@ impl PartialEq<str> for HeaderName {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct HeaderValue(imp::HeaderValue);
 impl<'a> TryFrom<&'a str> for HeaderValue {

@@ -177,3 +177,8 @@ impl From<io::Error> for Error {
         Self::Io(e)
     }
 }
+impl From<std::convert::Infallible> for Error {
+    fn from(_e: std::convert::Infallible) -> Self {
+        unreachable!();
+    }
+}

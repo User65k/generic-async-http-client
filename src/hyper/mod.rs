@@ -215,3 +215,8 @@ impl From<serde_qs::Error> for Error {
         Self::InvalidQueryString(e)
     }
 }
+impl From<std::convert::Infallible> for Error {
+    fn from(_e: std::convert::Infallible) -> Self {
+        unreachable!();
+    }
+}
