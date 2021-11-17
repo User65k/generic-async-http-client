@@ -34,11 +34,38 @@ impl Request {
         imp::Req::new(meth, uri).map(|r| Request(r))
     }
     /// Add a JSON boby to the request
+    /// ```
+    /// use generic_async_http_client::{Request, Response, Error};
+    /// use serde::Serialize;
+    /// #[derive(Serialize)]
+    /// struct JoseBody {
+    ///     protected: String,
+    ///     payload: String,
+    ///     signature: String,
+    /// }
+    /// async fn jose(jose: &JoseBody) -> Result<Response, Error> {
+    ///    let req = Request::put("http://example.com/").json(jose)?;
+    ///    req.exec().await
+    /// }
+    /// ```
     pub fn json<T: Serialize + ?Sized>(mut self, json: &T) -> Result<Self, Error> {
         self.0.json(json)?;
         Ok(self)
     }
     /// Add a form data boby to the request
+    /// ```
+    /// use generic_async_http_client::{Request, Response, Error};
+    /// use serde::Serialize;
+    /// #[derive(Serialize)]
+    /// struct ContactForm {
+    ///     email: String,
+    ///     text: String,
+    /// }
+    /// async fn post_form(form: &ContactForm) -> Result<Response, Error> {
+    ///    let req = Request::post("http://example.com/").form(form)?;
+    ///    req.exec().await
+    /// }
+    /// ```
     pub fn form<T: Serialize + ?Sized>(mut self, form: &T) -> Result<Self, Error> {
         self.0.form(form)?;
         Ok(self)
@@ -55,6 +82,13 @@ impl Request {
     }
     /// Add a single header to the request
     /// If the map did have this key present, the new value is associated with the key
+    /// ```
+    /// use generic_async_http_client::{Request, Response, Error};
+    /// async fn ua() -> Result<Response, Error> {
+    ///    let req = Request::get("http://example.com/").set_header("User-Agent", "generic_async_http_client v0.2")?;
+    ///    req.exec().await
+    /// }
+    /// ```
     pub fn set_header<N,V,E1, E2>(
         mut self,
         name: N,

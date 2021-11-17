@@ -84,6 +84,7 @@ impl Resp {
     }
 }
 
+/// Backend specific error
 #[derive(Debug)]
 pub struct Error {}
 impl std::error::Error for Error {}

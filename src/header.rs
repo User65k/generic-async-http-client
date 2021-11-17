@@ -3,6 +3,9 @@ use std::convert::TryFrom;
 
 use crate::imp;
 
+/// A HTTP Header Name
+/// 
+/// It can be converted to and from `&[u8]` and `&str`
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(transparent)]
 pub struct HeaderName(imp::HeaderName);
@@ -119,6 +122,9 @@ impl PartialEq<str> for HeaderName {
     }
 }
 
+/// A HTTP Header Value
+/// 
+/// It can be converted to and from `&[u8]` and `&str`
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct HeaderValue(imp::HeaderValue);

@@ -58,3 +58,4 @@ default = []
 [dev-dependencies]
 async-std = "1.9.0"
 tokio = {version = "1.6.1", features=["rt", "net"]}
+serde = {version = "1.0", features=["derive"]}
