@@ -19,7 +19,7 @@ pub async fn connect_via_socks_prx(
     dns_via_prx: bool,
 ) -> io::Result<TcpStream> {
     let mut buf = Vec::with_capacity(22);
-    buf.push(5 as u8);
+    buf.push(5_u8);
     buf.push(1);
     buf.push(0);
 
@@ -51,7 +51,7 @@ pub async fn connect_via_socks_prx(
         let a = (host, port)
             .to_socket_addrs()?
             .next()
-            .ok_or(io::Error::new(
+            .ok_or_else(|| io::Error::new(
                 io::ErrorKind::NotFound,
                 "Could not resolve the host",
             ))?;
@@ -114,7 +114,8 @@ pub async fn connect_via_socks_prx(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{assert_stream, TcpListener, spawn, block_on};
+    use crate::tests::{assert_stream, TcpListener, spawn, block_on, listen_somewhere};
+
     #[test]
     fn socks5h() {
         async fn server(listener: TcpListener) -> std::io::Result<bool> {
@@ -137,21 +138,27 @@ mod tests {
                 b"n0ice",
             )
             .await?;
+            stream.write_all(b"indeed").await?; //version ok reserved dns len host port
 
             Ok(true)
         }
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:61081").await?;
+            let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
             let mut stream = connect_via_socks_prx(
                 "host",
                 0x1234,
-                "127.0.0.1",
-                61081,
+                &phost,
+                pport,
                 true,
             ).await?;
             stream.write_all(b"n0ice").await?;
+            assert_stream(
+                &mut stream,
+                b"indeed",
+            )
+            .await?;
 
             assert!(t.await?, "not cool");
             Ok(())
@@ -184,14 +191,14 @@ mod tests {
             Ok(true)
         }
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:61082").await?;
+            let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
             let mut stream = connect_via_socks_prx(
                 "127.0.0.1",
                 0x1234,
-                "127.0.0.1",
-                61082,
+                &phost,
+                pport,
                 true,
             ).await?;
             stream.write_all(b"n0ice").await?;
@@ -227,14 +234,14 @@ mod tests {
             Ok(true)
         }
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:61083").await?;
+            let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
             let mut stream = connect_via_socks_prx(
                 "::1",
                 0x1234,
-                "127.0.0.1",
-                61083,
+                &phost,
+                pport,
                 true,
             ).await?;
             stream.write_all(b"n0ice").await?;

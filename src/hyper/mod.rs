@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use serde::Serialize;
 
@@ -165,7 +165,18 @@ impl std::error::Error for Error {}
 use std::fmt;
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        match self {
+            Error::Scheme => write!(f, "Scheme"),
+            Error::Http(i) => write!(f, "{}", i.to_string()),
+            Error::InvalidQueryString(i) => write!(f, "{}", i.to_string()),
+            Error::InvalidMethod(i) => write!(f, "{}", i.to_string()),
+            Error::Hyper(i) => write!(f, "{}", i.to_string()),
+            Error::Json(i) => write!(f, "{}", i.to_string()),
+            Error::InvalidHeaderValue(i) => write!(f, "{}", i.to_string()),
+            Error::InvalidHeaderName(i) => write!(f, "{}", i.to_string()),
+            Error::InvalidUri(i) => write!(f, "{}", i.to_string()),
+            Error::Urlencoded(i) => write!(f, "{}", i.to_string()),
+        }
     }
 }
 

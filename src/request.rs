@@ -31,7 +31,7 @@ impl Request {
         Request(imp::Req::options(uri))
     }
     pub fn new(meth: &str, uri: &str) -> Result<Request, Error> {
-        imp::Req::new(meth, uri).map(|r| Request(r))
+        imp::Req::new(meth, uri).map(Request)
     }
     /// Add a JSON boby to the request
     /// ```
@@ -131,7 +131,7 @@ impl Request {
 
     /// Send the request to the webserver
     pub async fn exec(self) -> Result<Response, Error> {
-        let r = self.0.send_request().await.map(|r| Response(r))?;
+        let r = self.0.send_request().await.map(Response)?;
 
         if r.status_code() > 299 && r.status_code() < 399 {
             if let Some(loc) = r.header("Location").and_then(|l| l.try_into().ok()) {

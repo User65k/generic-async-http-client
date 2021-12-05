@@ -32,31 +32,29 @@ pub async fn connect_via_http_prx(
     let r = socket.read(&mut buffer).await?;
 
     let mut read = &buffer[..r];
-    if r > 12 {
-        if read.starts_with(b"HTTP/1.1 200") || read.starts_with(b"HTTP/1.0 200") {
-            loop {
-                if read.ends_with(b"\r\n\r\n") {
-                    return Ok(socket);
-                }
-                // else read more
-                let r = socket.read(&mut buffer).await?;
-                if r == 0 {
-                    break;
-                }
-                read = &buffer[..r];
+    if r > 12 && (read.starts_with(b"HTTP/1.1 200") || read.starts_with(b"HTTP/1.0 200")) {
+        loop {
+            if read.ends_with(b"\r\n\r\n") {
+                return Ok(socket);
             }
+            // else read more
+            let r = socket.read(&mut buffer).await?;
+            if r == 0 {
+                break;
+            }
+            read = &buffer[..r];
         }
     }
     Err(io::Error::new(
         io::ErrorKind::InvalidData,
-        format!("{}", host),
+        host.to_string(),
     ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{assert_stream, TcpListener, spawn, block_on};
+    use crate::tests::{assert_stream, TcpListener, spawn, block_on, listen_somewhere};
     #[test]
     fn http_proxy() {
         async fn server(listener: TcpListener) -> std::io::Result<bool> {
@@ -77,14 +75,14 @@ mod tests {
             Ok(true)
         }
         block_on(async {
-            let listener = TcpListener::bind("127.0.0.1:63128").await?;
+            let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
             let mut stream = connect_via_http_prx(
                 "host",
                 1234,
-                "127.0.0.1",
-                63128,
+                &phost,
+                pport,
             ).await?;
             stream.write_all(b"n0ice").await?;
 

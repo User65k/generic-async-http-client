@@ -19,16 +19,16 @@ to **specify what implementation should be used**.
 And if there is a **Proxy**. If not specified auto detection is performed by looking at `HTTP_PROXY`.
 
 # Features
-You need to specify via features what crates are used to the actual work.
+You need to specify via features what crates are used to do the actual work.
 
 |feature flag|Meaning|
 |---|---|
-|use_hyper|Use [hyper](https://crates.io/crates/hyper) for HTTP ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/hyper_rustls)|
-|use_async_h1|Use [async_h1](https://crates.io/crates/async_h1) for HTTP ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/async_std_rustls)|
+|use_hyper|Use [hyper](https://crates.io/crates/hyper) for HTTP ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/hyper_rustls?label=tests)|
+|use_async_h1|Use [async_h1](https://crates.io/crates/async_h1) for HTTP ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/async_std_rustls?label=tests)|
 |rustls|Add support for HTTPS via [rustls](https://crates.io/crates/rustls)|
 |proxies|Add support for Socks5 and HTTP proxy|
-|hyper_native_tls|Use [hyper](https://crates.io/crates/hyper) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/hyper_native)|
-|async_native_tls|Use [async_h1](https://crates.io/crates/async_h1) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/async_native)|
+|hyper_native_tls|Use [hyper](https://crates.io/crates/hyper) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/hyper_native?label=tests)|
+|async_native_tls|Use [async_h1](https://crates.io/crates/async_h1) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/async_native?label=tests)|
 
 Without anything specified you will end up with *No HTTP backend was selected*.
 If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the apropriate features.
