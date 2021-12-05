@@ -5,7 +5,18 @@ use crate::imp;
 
 /// A HTTP Header Name
 /// 
-/// It can be converted to and from `&[u8]` and `&str`
+/// It can be converted from `&[u8]` and `&str`.
+/// You can obtain `&str` and `&[u8]` references and compare with str.
+/// ```
+/// use std::convert::TryInto;
+/// use generic_async_http_client::HeaderName;
+/// let hn: HeaderName = "test".try_into().unwrap();
+/// assert!(hn=="test");
+/// let s: &str = hn.as_ref();
+/// assert!(s.is_ascii());
+/// let b: &[u8] = hn.as_ref();
+/// assert!(b.contains(&b's'));
+/// ```
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(transparent)]
 pub struct HeaderName(imp::HeaderName);
@@ -121,10 +132,26 @@ impl PartialEq<str> for HeaderName {
         return false;
     }
 }
+impl PartialEq<&str> for HeaderName {
+    #[inline]
+    fn eq(&self, other: &&str) -> bool {
+        self.eq(*other)
+    }
+}
 
 /// A HTTP Header Value
 /// 
-/// It can be converted to and from `&[u8]` and `&str`
+/// It can be converted from `&[u8]` and `&str`.
+/// You can obtain a `&[u8]` reference and compare with str and `&[u8]`.
+/// You can also convert it to `String` if it is valid utf-8.
+/// ```
+/// use std::convert::TryInto;
+/// use generic_async_http_client::HeaderValue;
+/// let hv: HeaderValue = b"test"[..].try_into().unwrap();
+/// assert!(hv=="test");
+/// assert!(hv.as_ref().contains(&b's'));
+/// let val: String = hv.try_into().unwrap();
+/// ```
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct HeaderValue(imp::HeaderValue);
@@ -215,6 +242,12 @@ impl PartialEq<str> for HeaderValue {
         return false;
     }
 }
+impl PartialEq<&str> for HeaderValue {
+    #[inline]
+    fn eq(&self, other: &&str) -> bool {
+        self.eq(*other)
+    }
+}
 
 impl PartialEq<[u8]> for HeaderValue {
     #[cfg_attr(
@@ -229,5 +262,11 @@ impl PartialEq<[u8]> for HeaderValue {
         return self.as_ref() == other;
         #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
         return false;
+    }
+}
+impl PartialEq<&[u8]> for HeaderValue {
+    #[inline]
+    fn eq(&self, other: &&[u8]) -> bool {
+        self.eq(*other)
     }
 }

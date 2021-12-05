@@ -33,7 +33,7 @@ impl Request {
     pub fn new(meth: &str, uri: &str) -> Result<Request, Error> {
         imp::Req::new(meth, uri).map(Request)
     }
-    /// Add a JSON boby to the request
+    /// Add a JSON body to the request
     /// ```
     /// use generic_async_http_client::{Request, Response, Error};
     /// use serde::Serialize;
@@ -52,7 +52,7 @@ impl Request {
         self.0.json(json)?;
         Ok(self)
     }
-    /// Add a form data boby to the request
+    /// Add a form data body to the request
     /// ```
     /// use generic_async_http_client::{Request, Response, Error};
     /// use serde::Serialize;
@@ -75,7 +75,7 @@ impl Request {
         self.0.query(query)?;
         Ok(self)
     }
-    /// Add a boby to the request
+    /// Add a body to the request
     pub fn body(mut self, body: impl Into<Body>) -> Result<Self, Error> {
         self.0.body(body.into())?;
         Ok(self)
