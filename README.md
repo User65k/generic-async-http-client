@@ -11,7 +11,7 @@
 A generic async HTTP request create.
 
 It is meant to be a thin wrapper around various HTTP clients
-and handles TLS, serialisation and parsing.
+and handles TLS, serialization and parsing.
 
 The main goal is to allow binaries (that pull in some libraries that make use of a HTTP client)
 to **specify what implementation should be used**.
@@ -31,13 +31,13 @@ You need to specify via features what crates are used to do the actual work.
 |async_native_tls|Use [async_h1](https://crates.io/crates/async_h1) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/User65k/generic-async-http-client/async_native?label=tests)|
 
 Without anything specified you will end up with *No HTTP backend was selected*.
-If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the apropriate features.
+If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the appropriate features.
 
 # Motivation
 
-Rust offers different async runtimes that - on a high level - offer the same thing: asyncrounes functions for files, sockets and so on.
+Rust offers different async runtimes that - on a high level - offer the same thing: asynchronous functions for files, sockets and so on.
 
-So if you write a lib and need some basic stiff (like an http client) you sometimes have to make choices that are not what your crates users would have liked.
+So if you write a lib and need some basic stuff (like an http client) you sometimes have to make choices that are not what your crates users would have liked.
 For example:
 I wrote a [webserver](https://github.com/User65k/flash_rust_ws) based on hyper and wanted to add ACME.
 A crate I found did what I needed but used async-h1 and async-std. While that worked, it did increase the binary size and crates I depend on by a good amount.
@@ -57,5 +57,5 @@ Also for http clients: there should be a way to add a proxy for all libs that us
 
 2. Add Sessions - to make multiple requests more efficient
 3. Add a cookie jar for the sessions
-4. Alow a Body to be streamed from a server
-5. Alow a Body to be streamed to a server
+4. Allow a Body to be streamed from a server
+5. Allow a Body to be streamed to a server
