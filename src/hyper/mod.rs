@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, convert::{TryFrom, Infallible}};
 
 use serde::Serialize;
 
@@ -11,7 +11,7 @@ use hyper::{
     http::{
         method::{InvalidMethod, Method},
         request::Builder,
-        uri::{Builder as UriBuilder, InvalidUri, PathAndQuery},
+        uri::{Builder as UriBuilder, InvalidUri, PathAndQuery, Uri},
         Error as HTTPError,
     },
     Client, Error as HyperError, Response,
@@ -28,6 +28,32 @@ pub struct Req {
 }
 pub struct Resp {
     resp: Response<Body>,
+}
+
+impl Into<Response<Body>> for crate::Response {
+    fn into(self) -> Response<Body> {
+        self.0.resp
+    }
+}
+
+impl<M,U> TryFrom<(M,U)> for crate::Request
+where
+    Method: TryFrom<M>,
+    <Method as TryFrom<M>>::Error: Into<HTTPError>,
+    Uri: TryFrom<U>,
+    <Uri as TryFrom<U>>::Error: Into<HTTPError>,
+    {
+
+    type Error = Infallible;
+
+    fn try_from(value: (M,U)) -> Result<Self, Self::Error> {
+        let req = Builder::new().method(value.0).uri(value.1);
+
+        Ok(crate::Request(Req {
+            req,
+            body: Body::empty(),
+        }))
+    }
 }
 
 impl Req {

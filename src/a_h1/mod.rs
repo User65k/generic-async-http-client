@@ -4,9 +4,10 @@ pub use http_types::{
     headers::{HeaderName, HeaderValue, HeaderValues, Iter as HttpHeaderIter, ToHeaderValues},
     Body,
 };
-use http_types::{Method, Request, Response};
+use http_types::{Method, Request, Response, Url};
 use serde::Serialize;
 use std::str::FromStr;
+use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug)]
 pub struct Req {
@@ -16,6 +17,26 @@ pub struct Resp {
     resp: Response,
 }
 
+impl Into<Response> for crate::Response {
+    fn into(self) -> Response {
+        self.0.resp
+    }
+}
+
+impl<M,U> TryFrom<(M,U)> for crate::Request
+where
+    Method: TryFrom<M>,
+    Url: TryFrom<U>,
+    <Url as TryFrom<U>>::Error: std::fmt::Debug,
+    {
+
+    type Error = <Method as TryFrom<M>>::Error;
+
+    fn try_from(value: (M,U)) -> Result<Self, Self::Error> {
+        let req = Request::new(value.0.try_into()?, value.1);
+        Ok(crate::Request(Req { req }))
+    }
+}
 impl Req {
     pub fn get(uri: &str) -> Req {
         Self::init(Method::Get, uri)

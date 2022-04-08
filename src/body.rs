@@ -42,6 +42,12 @@ impl From<Body> for imp::Body {
         t.0
     }
 }
+impl From<imp::Body> for Body {
+    #[inline]
+    fn from(t: imp::Body) -> Self {
+        Body(t)
+    }
+}
 
 /*/TODO Stream to server -> AsyncWrite for Body
 impl Stream for Body {
