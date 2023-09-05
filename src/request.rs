@@ -3,6 +3,14 @@ use crate::{Error, Body, HeaderName, HeaderValue, Response, imp};
 use std::convert::TryInto;
 
 /// Builds a HTTP request, poll it to query
+/// ```
+/// # use generic_async_http_client::{Request, Response, Error};
+/// # async fn get() -> Result<(), Error> {
+///     let req = Request::get("http://example.com/");
+///     let resp = req.exec().await?;
+/// # Ok(())
+/// # }
+/// ```
 pub struct Request(pub(crate) imp::Req);
 impl Request {
     //auth
@@ -35,8 +43,8 @@ impl Request {
     }
     /// Add a JSON body to the request
     /// ```
-    /// use generic_async_http_client::{Request, Response, Error};
-    /// use serde::Serialize;
+    /// # use generic_async_http_client::{Request, Response, Error};
+    /// # use serde::Serialize;
     /// #[derive(Serialize)]
     /// struct JoseBody {
     ///     protected: String,
@@ -54,8 +62,8 @@ impl Request {
     }
     /// Add a form data body to the request
     /// ```
-    /// use generic_async_http_client::{Request, Response, Error};
-    /// use serde::Serialize;
+    /// # use generic_async_http_client::{Request, Response, Error};
+    /// # use serde::Serialize;
     /// #[derive(Serialize)]
     /// struct ContactForm {
     ///     email: String,
@@ -76,6 +84,13 @@ impl Request {
         Ok(self)
     }
     /// Add a body to the request
+    /// ```
+    /// # use generic_async_http_client::{Request, Response, Error};
+    /// # async fn body() -> Result<Response, Error> {
+    ///     let req = Request::post("http://example.com/").body("some body")?;
+    /// #   req.exec().await
+    /// # }
+    /// ```
     pub fn body(mut self, body: impl Into<Body>) -> Result<Self, Error> {
         self.0.body(body.into())?;
         Ok(self)
@@ -83,11 +98,11 @@ impl Request {
     /// Add a single header to the request
     /// If the map did have this key present, the new value is associated with the key
     /// ```
-    /// use generic_async_http_client::{Request, Response, Error};
-    /// async fn ua() -> Result<Response, Error> {
-    ///    let req = Request::get("http://example.com/").set_header("User-Agent", "generic_async_http_client v0.2")?;
-    ///    req.exec().await
-    /// }
+    /// # use generic_async_http_client::{Request, Response, Error};
+    /// # async fn ua() -> Result<Response, Error> {
+    ///     let req = Request::get("http://example.com/").set_header("User-Agent", "generic_async_http_client v0.2")?;
+    /// #   req.exec().await
+    /// # }
     /// ```
     pub fn set_header<N,V,E1, E2>(
         mut self,
