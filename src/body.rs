@@ -9,7 +9,7 @@ use futures_core::Stream;*/
 use async_std::io::prelude::{AsyncRead, AsyncBufRead};
 */
 
-/// A Body for the Request
+/// A Body for the Request. You will most likely use [`Request::body`](./struct.Request.html#method.body) directly.
 pub struct Body(imp::Body);
 impl From<String> for Body {
     #[inline]

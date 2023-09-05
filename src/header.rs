@@ -8,8 +8,8 @@ use crate::imp;
 /// It can be converted from `&[u8]` and `&str`.
 /// You can obtain `&str` and `&[u8]` references and compare with str.
 /// ```
-/// use std::convert::TryInto;
-/// use generic_async_http_client::HeaderName;
+/// # use std::convert::TryInto;
+/// # use generic_async_http_client::HeaderName;
 /// let hn: HeaderName = "test".try_into().unwrap();
 /// assert!(hn=="test");
 /// let s: &str = hn.as_ref();
@@ -145,8 +145,8 @@ impl PartialEq<&str> for HeaderName {
 /// You can obtain a `&[u8]` reference and compare with str and `&[u8]`.
 /// You can also convert it to `String` if it is valid utf-8.
 /// ```
-/// use std::convert::TryInto;
-/// use generic_async_http_client::HeaderValue;
+/// # use std::convert::TryInto;
+/// # use generic_async_http_client::HeaderValue;
 /// let hv: HeaderValue = b"test"[..].try_into().unwrap();
 /// assert!(hv=="test");
 /// assert!(hv.as_ref().contains(&b's'));
