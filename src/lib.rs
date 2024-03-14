@@ -91,13 +91,8 @@ mod tests {
     pub(crate) async fn assert_stream(stream: &mut TcpStream, should_be: &[u8]) -> std::io::Result<()> {
         let l = should_be.len();
         let mut req: Vec<u8> = vec![0; l];
-        stream.read_exact(req.as_mut_slice()).await?;
-        if req != should_be {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "req not as expected",
-            ));
-        }
+        let _r = stream.read(req.as_mut_slice()).await?;
+        assert_eq!(req, should_be);
         Ok(())
     }
     pub(crate) async fn listen_somewhere() -> Result<(TcpListener, u16, String), std::io::Error> {
@@ -112,14 +107,6 @@ mod tests {
         async fn server(listener: TcpListener, host: String, port: u16) -> std::io::Result<bool> {
             let (mut stream, _) = listener.accept().await?;
             let mut output = Vec::with_capacity(1);
-
-            #[cfg(feature = "use_hyper")]
-            assert_stream(
-                &mut stream,
-                format!("GET / HTTP/1.1\r\nhost: {}:{}\r\n\r\n",host,port).as_bytes(),
-            )
-            .await?;
-            #[cfg(feature = "use_async_h1")]
             assert_stream(
                 &mut stream,
                 format!("GET / HTTP/1.1\r\nhost: {}:{}\r\ncontent-length: 0\r\n\r\n",host,port).as_bytes(),
@@ -157,7 +144,7 @@ mod tests {
             #[cfg(feature = "use_hyper")]
             assert_stream(
                 &mut stream,
-                format!("PUT / HTTP/1.1\r\ncookies: jo\r\nhost: {}:{}\r\n\r\n",host,port).as_bytes(),
+                format!("PUT / HTTP/1.1\r\ncookies: jo\r\nhost: {}:{}\r\ncontent-length: 0\r\n\r\n",host,port).as_bytes(),
             )
             .await?;
 

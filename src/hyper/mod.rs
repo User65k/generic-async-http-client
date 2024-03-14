@@ -7,12 +7,12 @@ pub use hyper::{
     body::Incoming,
 };
 use hyper::{
-    body::{Bytes, Frame, Body as BodyTrait}, header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE}, http::{
+    body::{Body as BodyTrait, Bytes, Frame, SizeHint}, header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE}, http::{
         method::{InvalidMethod, Method},
         request::Builder,
         uri::{Builder as UriBuilder, InvalidUri, PathAndQuery, Uri},
         Error as HTTPError,
-    }, Error as HyperError, Response, Request
+    }, Error as HyperError, Request, Response
 };
 use std::mem::take;
 
@@ -364,5 +364,8 @@ impl hyper::body::Body for Body {
             let v: Vec<u8> = std::mem::take(self.0.as_mut());
             std::task::Poll::Ready(Some(Ok(Frame::data(v.into()))))
         }
+    }
+    fn size_hint(&self) -> SizeHint {
+        SizeHint::with_exact(self.0.len() as u64)
     }
 }
