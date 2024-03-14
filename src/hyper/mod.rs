@@ -1,37 +1,40 @@
-use std::{str::FromStr, convert::{TryFrom, Infallible}};
+use std::{convert::{Infallible, TryFrom}, str::FromStr};
 
 use serde::Serialize;
 
 pub use hyper::{
     header::{HeaderName, HeaderValue},
-    Body,
+    body::Incoming,
 };
 use hyper::{
-    header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE},
-    http::{
+    body::{Bytes, Frame, Body as BodyTrait}, header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE}, http::{
         method::{InvalidMethod, Method},
         request::Builder,
         uri::{Builder as UriBuilder, InvalidUri, PathAndQuery, Uri},
         Error as HTTPError,
-    },
-    Client, Error as HyperError, Response,
+    }, Error as HyperError, Response, Request
 };
 use std::mem::take;
 
 mod connector;
-use connector::Connector;
+pub(crate) use connector::HyperClient;
+
+pub(crate) fn get_client() -> HyperClient {
+    HyperClient::default()
+}
 
 #[derive(Debug)]
 pub struct Req {
     req: Builder,
     body: Body,
+    pub(crate) client: Option<HyperClient>
 }
 pub struct Resp {
-    resp: Response<Body>,
+    resp: Response<Incoming>,
 }
 
-impl Into<Response<Body>> for crate::Response {
-    fn into(self) -> Response<Body> {
+impl Into<Response<Incoming>> for crate::Response {
+    fn into(self) -> Response<Incoming> {
         self.0.resp
     }
 }
@@ -52,6 +55,7 @@ where
         Ok(crate::Request(Req {
             req,
             body: Body::empty(),
+            client: None
         }))
     }
 }
@@ -84,31 +88,32 @@ impl Req {
         Req {
             req,
             body: Body::empty(),
+            client: None
         }
     }
-    pub async fn send_request(self) -> Result<Resp, Error> {
+    pub async fn send_request(mut self) -> Result<Resp, Error> {
         let req = self.req.body(self.body)?;
 
-        let connector = Connector::new();
-        let client = Client::builder().build::<_, Body>(connector);
-
-        let resp = client.request(req).await?;
+        let resp = if let Some(mut client) = self.client.take() {
+            client.request(req).await?
+        }else{
+            get_client().request(req).await?
+        };
         Ok(Resp { resp })
     }
     pub fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
-        let bytes = serde_json::to_vec(&json)?;
+        let bytes = serde_json::to_string(&json)?;
         self.set_header(CONTENT_TYPE, HeaderValue::from_static("application/json"))?;
-        self.body = Body::from(bytes);
+        self.body = bytes.into();
         Ok(())
     }
     pub fn form<T: Serialize + ?Sized>(&mut self, data: &T) -> Result<(), Error> {
         let query = serde_urlencoded::to_string(data)?;
-        let bytes = query.into_bytes();
         self.set_header(
             CONTENT_TYPE,
             HeaderValue::from_static("application/x-www-form-urlencoded"),
         )?;
-        self.body = Body::from(bytes);
+        self.body = query.into();
         Ok(())
     }
     pub fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), Error> {
@@ -145,7 +150,6 @@ impl Req {
     }
 }
 use hyper::body::Buf;
-use hyper::body::{aggregate, to_bytes};
 use serde::de::DeserializeOwned;
 impl Resp {
     pub fn status(&self) -> u16 {
@@ -159,8 +163,11 @@ impl Resp {
         Ok(serde_json::from_reader(reader)?)
     }
     pub async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
-        let b = to_bytes(self.resp.body_mut()).await?;
-        Ok(b.to_vec())
+        let mut b = aggregate(self.resp.body_mut()).await?;
+        let capacity = b.remaining();
+        let mut v = Vec::with_capacity(capacity);
+        b.copy_to_slice(&mut v);
+        Ok(v)
     }
     pub async fn string(&mut self) -> Result<String, Error> {
         let b = self.bytes().await?;
@@ -172,6 +179,53 @@ impl Resp {
     pub fn header_iter(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
         self.resp.headers().into_iter()
     }
+}
+
+struct FracturedBuf(std::collections::VecDeque<Bytes>);
+impl Buf for FracturedBuf {
+    fn remaining(&self) -> usize {
+        self.0.iter().map(|buf| buf.remaining()).sum()
+    }
+    fn chunk(&self) -> &[u8] {
+        self.0.front().map(Buf::chunk).unwrap_or_default()
+    }
+    fn advance(&mut self, mut cnt: usize) {
+        let bufs = &mut self.0;
+        while cnt > 0 {
+            if let Some(front) = bufs.front_mut() {
+                let rem = front.remaining();
+                if rem > cnt {
+                    front.advance(cnt);
+                    return;
+                } else {
+                    front.advance(rem);
+                    cnt -= rem;
+                }
+            } else {
+                //no data -> panic?
+                return;
+            }
+            bufs.pop_front();
+        }
+    }
+}
+struct Framed<'a>(&'a mut Incoming);
+
+impl<'a> futures::Future for Framed<'a> {
+    type Output = Option<Result<hyper::body::Frame<Bytes>, hyper::Error>>;
+
+    fn poll(mut self: std::pin::Pin<&mut Self>, ctx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+        std::pin::Pin::new(&mut self.0).poll_frame(ctx)
+    }
+}
+async fn aggregate(body: &mut Incoming) -> Result<FracturedBuf, Error> {
+    let mut v = std::collections::VecDeque::new();
+    while let Some(f) = Framed(body).await {
+        if let Ok(d) = f?.into_data() {
+            v.push_back(d);
+        }
+    }
+    Ok(FracturedBuf(v))
 }
 
 #[derive(Debug)]
@@ -186,6 +240,7 @@ pub enum Error {
     InvalidHeaderName(InvalidHeaderName),
     InvalidUri(InvalidUri),
     Urlencoded(serde_urlencoded::ser::Error),
+    Io(std::io::Error)
 }
 impl std::error::Error for Error {}
 use std::fmt;
@@ -202,10 +257,16 @@ impl fmt::Display for Error {
             Error::InvalidHeaderName(i) => write!(f, "{}", i.to_string()),
             Error::InvalidUri(i) => write!(f, "{}", i.to_string()),
             Error::Urlencoded(i) => write!(f, "{}", i.to_string()),
+            Error::Io(i) => write!(f, "{}", i.to_string()),
         }
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
 impl From<serde_urlencoded::ser::Error> for Error {
     fn from(e: serde_urlencoded::ser::Error) -> Self {
         Self::Urlencoded(e)
@@ -255,5 +316,53 @@ impl From<serde_qs::Error> for Error {
 impl From<std::convert::Infallible> for Error {
     fn from(_e: std::convert::Infallible) -> Self {
         unreachable!();
+    }
+}
+
+#[derive(Debug)]
+pub struct Body(Vec<u8>);
+impl Body {
+    fn empty() -> Self {
+        Self(vec![])
+    }
+}
+impl From<String> for Body {
+    #[inline]
+    fn from(t: String) -> Self {
+        Body(t.into_bytes())
+    }
+}
+impl From<Vec<u8>> for Body {
+    #[inline]
+    fn from(t: Vec<u8>) -> Self {
+        Body(t)
+    }
+}
+impl From<&'static [u8]> for Body {
+    #[inline]
+    fn from(t: &'static [u8]) -> Self {
+        Body(t.to_vec())
+    }
+}
+impl From<&'static str> for Body {
+    #[inline]
+    fn from(t: &'static str) -> Self {
+        Body(t.as_bytes().to_vec())
+    }
+}
+impl hyper::body::Body for Body {
+    type Data = Bytes;
+    type Error = Infallible;
+
+    fn poll_frame(
+        mut self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+        if self.0.is_empty() {
+            std::task::Poll::Ready(None)
+        }else{
+            let v: Vec<u8> = std::mem::take(self.0.as_mut());
+            std::task::Poll::Ready(Some(Ok(Frame::data(v.into()))))
+        }
     }
 }

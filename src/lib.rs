@@ -22,6 +22,8 @@ mod imp;
 
 #[cfg(any(feature = "use_hyper", feature = "use_async_h1"))]
 mod tcp;
+#[cfg(any(feature = "use_hyper", feature = "use_async_h1"))]
+pub use tcp::proxy;
 
 #[cfg(feature = "use_async_h1")]
 #[path = "a_h1/mod.rs"]
@@ -127,7 +129,7 @@ mod tests {
             stream
                 .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 3\r\n\r\nabc")
                 .await?;
-            stream.read(&mut output).await?;
+            let _ = stream.read(&mut output).await?;
             Ok(true)
         }
         block_on(async {

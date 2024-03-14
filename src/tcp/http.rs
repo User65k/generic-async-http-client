@@ -27,7 +27,7 @@ pub async fn connect_via_http_prx(
         "" //TODO Auth
     )
     .into_bytes();
-    socket.write(&buf).await?;
+    socket.write_all(&buf).await?;
     let mut buffer = [0; 40];
     let r = socket.read(&mut buffer).await?;
 
