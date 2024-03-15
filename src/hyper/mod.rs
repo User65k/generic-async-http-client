@@ -165,7 +165,8 @@ impl Resp {
     pub async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
         let mut b = aggregate(self.resp.body_mut()).await?;
         let capacity = b.remaining();
-        let mut v = Vec::with_capacity(capacity);
+        //TODO uninit
+        let mut v = vec![0;capacity];        
         b.copy_to_slice(&mut v);
         Ok(v)
     }
@@ -248,16 +249,16 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Scheme => write!(f, "Scheme"),
-            Error::Http(i) => write!(f, "{}", i.to_string()),
-            Error::InvalidQueryString(i) => write!(f, "{}", i.to_string()),
-            Error::InvalidMethod(i) => write!(f, "{}", i.to_string()),
-            Error::Hyper(i) => write!(f, "{}", i.to_string()),
-            Error::Json(i) => write!(f, "{}", i.to_string()),
-            Error::InvalidHeaderValue(i) => write!(f, "{}", i.to_string()),
-            Error::InvalidHeaderName(i) => write!(f, "{}", i.to_string()),
-            Error::InvalidUri(i) => write!(f, "{}", i.to_string()),
-            Error::Urlencoded(i) => write!(f, "{}", i.to_string()),
-            Error::Io(i) => write!(f, "{}", i.to_string()),
+            Error::Http(i) => write!(f, "{}", i),
+            Error::InvalidQueryString(i) => write!(f, "{}", i),
+            Error::InvalidMethod(i) => write!(f, "{}", i),
+            Error::Hyper(i) => write!(f, "{}", i),
+            Error::Json(i) => write!(f, "{}", i),
+            Error::InvalidHeaderValue(i) => write!(f, "{}", i),
+            Error::InvalidHeaderName(i) => write!(f, "{}", i),
+            Error::InvalidUri(i) => write!(f, "{}", i),
+            Error::Urlencoded(i) => write!(f, "{}", i),
+            Error::Io(i) => write!(f, "{}", i),
         }
     }
 }
