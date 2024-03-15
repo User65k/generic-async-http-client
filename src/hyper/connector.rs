@@ -1,5 +1,5 @@
 use hyper::{
-    header::{HeaderValue, HOST}, http::uri::{Scheme, Uri}, service::Service
+    header::{HeaderValue, HOST}, http::uri::{Scheme, Uri}
 };
 use crate::tcp::Stream;
 
@@ -75,8 +75,8 @@ impl HyperClient {
             .expect("uri host is valid header value")
         });
 
-        origin_form(req.uri_mut());
-
+            origin_form(req.uri_mut());
+        
         sender.send_request(req).await.map_err(|e|e.into())
     }
 }

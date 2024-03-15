@@ -22,7 +22,7 @@ mod imp;
 
 #[cfg(any(feature = "use_hyper", feature = "use_async_h1"))]
 mod tcp;
-#[cfg(any(feature = "use_hyper", feature = "use_async_h1"))]
+#[cfg(all(any(feature = "use_hyper", feature = "use_async_h1"), feature = "proxies"))]
 pub use tcp::proxy;
 
 #[cfg(feature = "use_async_h1")]
