@@ -190,6 +190,50 @@ pub mod proxy {
             }
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::tests::{assert_stream, TcpListener, spawn, block_on, listen_somewhere, WriteExt};
+        #[test]
+        fn prx_from_env() {
+            async fn server(listener: TcpListener) -> std::io::Result<bool> {
+                let (mut stream, _) = listener.accept().await?;
+
+                assert_stream(
+                    &mut stream,
+                    format!("CONNECT whatever:80 HTTP/1.1\r\nHost: whatever:80\r\n\r\n").as_bytes(),
+                )
+                .await?;
+                stream.write_all(b"HTTP/1.1 200 Connected\r\n\r\n").await?;
+                
+                assert_stream(
+                    &mut stream,
+                    format!("GET /bla HTTP/1.1\r\nhost: whatever\r\ncontent-length: 0\r\n\r\n").as_bytes(),
+                )
+                .await?;
+                stream
+                    .write_all(b"HTTP/1.1 200 OK\r\ncontent-length: 3\r\n\r\nabc")
+                    .await?;
+
+                Ok(true)
+            }
+            block_on(async {
+                let (listener, pport, phost) = listen_somewhere().await?;
+                std::env::set_var("HTTP_PROXY", format!("http://{phost}:{pport}/"));
+                std::env::set_var("NO_PROXY", &phost);
+                let t = spawn(server(listener));
+
+                let r = crate::Request::get("http://whatever/bla");
+                let mut aw = r.exec().await?;
+    
+                assert_eq!(aw.status_code(), 200, "wrong status");
+                assert_eq!(aw.text().await?, "abc", "wrong text");
+                assert!(t.await?, "not cool");
+                Ok(())
+            })
+            .unwrap();
+        }
+    }
 }
 
 #[cfg(any(
