@@ -15,14 +15,21 @@ You need to specify via features what crates are used to the actual work.
 
 Without anything specified you will end up with *No HTTP backend was selected*.
 
+If performing more than one HTTP Request you should favor the use of [`Session`] over [`Request`].
 */
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
 #[path = "dummy/mod.rs"]
 mod imp;
 
 #[cfg(any(feature = "use_hyper", feature = "use_async_h1"))]
 mod tcp;
-#[cfg(all(any(feature = "use_hyper", feature = "use_async_h1"), feature = "proxies"))]
+#[cfg(all(
+    any(feature = "use_hyper", feature = "use_async_h1"),
+    feature = "proxies"
+))]
+#[cfg_attr(docsrs, doc(cfg(feature = "proxies")))]
 pub use tcp::proxy;
 
 #[cfg(feature = "use_async_h1")]
@@ -45,7 +52,6 @@ pub use response::Response;
 pub use body::Body;
 pub use header::{HeaderName, HeaderValue};
 pub use imp::Error;
-
 
 #[cfg(test)]
 mod tests {
@@ -88,7 +94,10 @@ mod tests {
         async { jh.await.expect("spawn failed") }
     }
 
-    pub(crate) async fn assert_stream(stream: &mut TcpStream, should_be: &[u8]) -> std::io::Result<()> {
+    pub(crate) async fn assert_stream(
+        stream: &mut TcpStream,
+        should_be: &[u8],
+    ) -> std::io::Result<()> {
         let l = should_be.len();
         let mut req: Vec<u8> = vec![0; l];
         let _r = stream.read(req.as_mut_slice()).await?;
@@ -109,7 +118,11 @@ mod tests {
             let mut output = Vec::with_capacity(1);
             assert_stream(
                 &mut stream,
-                format!("GET / HTTP/1.1\r\nhost: {}:{}\r\ncontent-length: 0\r\n\r\n",host,port).as_bytes(),
+                format!(
+                    "GET / HTTP/1.1\r\nhost: {}:{}\r\ncontent-length: 0\r\n\r\n",
+                    host, port
+                )
+                .as_bytes(),
             )
             .await?;
 
@@ -121,8 +134,8 @@ mod tests {
         }
         block_on(async {
             let (listener, port, host) = listen_somewhere().await?;
-            let uri = format!("http://{}:{}",host,port);
-            let t = spawn(server(listener,host,port));
+            let uri = format!("http://{}:{}", host, port);
+            let t = spawn(server(listener, host, port));
             let r = Request::get(&uri);
             let mut aw = r.exec().await?;
 
@@ -140,11 +153,23 @@ mod tests {
             //let mut output = Vec::with_capacity(2);
 
             #[cfg(feature = "use_async_h1")]
-            assert_stream(&mut stream, format!("PUT / HTTP/1.1\r\nhost: {}:{}\r\ncontent-length: 0\r\ncookies: jo\r\n\r\n",host,port).as_bytes()).await?;
+            assert_stream(
+                &mut stream,
+                format!(
+                    "PUT / HTTP/1.1\r\nhost: {}:{}\r\ncontent-length: 0\r\ncookies: jo\r\n\r\n",
+                    host, port
+                )
+                .as_bytes(),
+            )
+            .await?;
             #[cfg(feature = "use_hyper")]
             assert_stream(
                 &mut stream,
-                format!("PUT / HTTP/1.1\r\ncookies: jo\r\nhost: {}:{}\r\ncontent-length: 0\r\n\r\n",host,port).as_bytes(),
+                format!(
+                    "PUT / HTTP/1.1\r\ncookies: jo\r\nhost: {}:{}\r\ncontent-length: 0\r\n\r\n",
+                    host, port
+                )
+                .as_bytes(),
             )
             .await?;
 
@@ -157,8 +182,8 @@ mod tests {
         }
         block_on(async {
             let (listener, port, host) = listen_somewhere().await?;
-            let uri = format!("http://{}:{}",host,port);
-            let server = spawn(server(listener,host,port));
+            let uri = format!("http://{}:{}", host, port);
+            let server = spawn(server(listener, host, port));
             let r = Request::new("PUT", &uri)?;
             let r = r.set_header("Cookies", "jo")?;
             let resp = r.exec().await;

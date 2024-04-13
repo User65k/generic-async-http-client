@@ -1,10 +1,12 @@
+use crate::{imp, Error, HeaderName, HeaderValue};
 use serde::de::DeserializeOwned;
-use crate::{Error, HeaderName, HeaderValue, imp};
 use std::convert::TryInto;
 
 /// The response of a webserver.
 /// Headers and Status are available from the start,
 /// the body must be polled/awaited again
+///
+/// Depending on the chosen implementation, `Response` implements `Into<http_types::Response>` or `Into<hyper::Response>`.
 pub struct Response(pub(crate) imp::Resp);
 impl Response {
     /// Return the status code
