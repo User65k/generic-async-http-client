@@ -1,18 +1,24 @@
-use std::{convert::{Infallible, TryFrom}, str::FromStr};
+use std::{
+    convert::{Infallible, TryFrom},
+    str::FromStr,
+};
 
 use serde::Serialize;
 
 pub use hyper::{
-    header::{HeaderName, HeaderValue},
     body::Incoming,
+    header::{HeaderName, HeaderValue},
 };
 use hyper::{
-    body::{Body as BodyTrait, Bytes, Frame, SizeHint}, header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE}, http::{
+    body::{Body as BodyTrait, Bytes, Frame, SizeHint},
+    header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE},
+    http::{
         method::{InvalidMethod, Method},
         request::Builder,
         uri::{Builder as UriBuilder, InvalidUri, PathAndQuery, Uri},
         Error as HTTPError,
-    }, Error as HyperError, Request, Response
+    },
+    Error as HyperError, Request, Response,
 };
 use std::mem::take;
 
@@ -27,7 +33,7 @@ pub(crate) fn get_client() -> HyperClient {
 pub struct Req {
     req: Builder,
     body: Body,
-    pub(crate) client: Option<HyperClient>
+    pub(crate) client: Option<HyperClient>,
 }
 pub struct Resp {
     resp: Response<Incoming>,
@@ -39,23 +45,22 @@ impl Into<Response<Incoming>> for crate::Response {
     }
 }
 
-impl<M,U> TryFrom<(M,U)> for crate::Request
+impl<M, U> TryFrom<(M, U)> for crate::Request
 where
     Method: TryFrom<M>,
     <Method as TryFrom<M>>::Error: Into<HTTPError>,
     Uri: TryFrom<U>,
     <Uri as TryFrom<U>>::Error: Into<HTTPError>,
-    {
-
+{
     type Error = Infallible;
 
-    fn try_from(value: (M,U)) -> Result<Self, Self::Error> {
+    fn try_from(value: (M, U)) -> Result<Self, Self::Error> {
         let req = Builder::new().method(value.0).uri(value.1);
 
         Ok(crate::Request(Req {
             req,
             body: Body::empty(),
-            client: None
+            client: None,
         }))
     }
 }
@@ -88,7 +93,7 @@ impl Req {
         Req {
             req,
             body: Body::empty(),
-            client: None
+            client: None,
         }
     }
     pub async fn send_request(mut self) -> Result<Resp, Error> {
@@ -96,7 +101,7 @@ impl Req {
 
         let resp = if let Some(mut client) = self.client.take() {
             client.request(req).await?
-        }else{
+        } else {
             get_client().request(req).await?
         };
         Ok(Resp { resp })
@@ -165,9 +170,22 @@ impl Resp {
     pub async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
         let mut b = aggregate(self.resp.body_mut()).await?;
         let capacity = b.remaining();
-        //TODO uninit
-        let mut v = vec![0;capacity];        
-        b.copy_to_slice(&mut v);
+        let mut v = Vec::with_capacity(capacity);
+        let ptr = v.spare_capacity_mut().as_mut_ptr();
+        let mut off = 0;
+        while off < capacity {
+            let cnt;
+            unsafe {
+                let src = b.chunk();
+                cnt = src.len();
+                std::ptr::copy_nonoverlapping(src.as_ptr(), ptr.add(off).cast(), cnt);
+                off += cnt;
+            }
+            b.advance(cnt);
+        }
+        unsafe {
+            v.set_len(capacity);
+        }
         Ok(v)
     }
     pub async fn string(&mut self) -> Result<String, Error> {
@@ -215,7 +233,10 @@ struct Framed<'a>(&'a mut Incoming);
 impl<'a> futures::Future for Framed<'a> {
     type Output = Option<Result<hyper::body::Frame<Bytes>, hyper::Error>>;
 
-    fn poll(mut self: std::pin::Pin<&mut Self>, ctx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        ctx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
         std::pin::Pin::new(&mut self.0).poll_frame(ctx)
     }
 }
@@ -241,7 +262,7 @@ pub enum Error {
     InvalidHeaderName(InvalidHeaderName),
     InvalidUri(InvalidUri),
     Urlencoded(serde_urlencoded::ser::Error),
-    Io(std::io::Error)
+    Io(std::io::Error),
 }
 impl std::error::Error for Error {}
 use std::fmt;
@@ -361,7 +382,7 @@ impl hyper::body::Body for Body {
     ) -> std::task::Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         if self.0.is_empty() {
             std::task::Poll::Ready(None)
-        }else{
+        } else {
             let v: Vec<u8> = std::mem::take(self.0.as_mut());
             std::task::Poll::Ready(Some(Ok(Frame::data(v.into()))))
         }

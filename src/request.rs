@@ -1,5 +1,5 @@
+use crate::{imp, Body, Error, HeaderName, HeaderValue, Response};
 use serde::Serialize;
-use crate::{Error, Body, HeaderName, HeaderValue, Response, imp};
 use std::convert::TryInto;
 
 /// Builds a HTTP request, poll it to query
@@ -11,6 +11,8 @@ use std::convert::TryInto;
 /// # Ok(())
 /// # }
 /// ```
+///
+/// Depending on the chosen implementation, `Request` implements `TryFrom<(TryInto<Method>, TryInto<Url>)>`.
 pub struct Request(pub(crate) imp::Req);
 impl Request {
     //auth
@@ -104,16 +106,13 @@ impl Request {
     /// #   req.exec().await
     /// # }
     /// ```
-    pub fn set_header<N,V,E1, E2>(
-        mut self,
-        name: N,
-        value: V,
-    ) -> Result<Self, Error>
-    where 
-    N: TryInto<HeaderName, Error = E1>,
-    V: TryInto<HeaderValue, Error = E2>,
-    Error: From<E1>,
-    Error: From<E2>, {
+    pub fn set_header<N, V, E1, E2>(mut self, name: N, value: V) -> Result<Self, Error>
+    where
+        N: TryInto<HeaderName, Error = E1>,
+        V: TryInto<HeaderValue, Error = E2>,
+        Error: From<E1>,
+        Error: From<E2>,
+    {
         let val: HeaderValue = value.try_into()?;
         let name: HeaderName = name.try_into()?;
         self.0.set_header(name.into(), val.into())?;
@@ -122,16 +121,13 @@ impl Request {
     }
     /// Add a single header to the request
     /// If the map did have this key present, the new value is pushed to the end of the list of values
-    pub fn add_header<N,V,E1, E2>(
-        mut self,
-        name: N,
-        value: V,
-    ) -> Result<Self, Error>
-    where 
-    N: TryInto<HeaderName, Error = E1>,
-    V: TryInto<HeaderValue, Error = E2>,
-    Error: From<E1>,
-    Error: From<E2>, {
+    pub fn add_header<N, V, E1, E2>(mut self, name: N, value: V) -> Result<Self, Error>
+    where
+        N: TryInto<HeaderName, Error = E1>,
+        V: TryInto<HeaderValue, Error = E2>,
+        Error: From<E1>,
+        Error: From<E2>,
+    {
         let val: HeaderValue = value.try_into()?;
         let name: HeaderName = name.try_into()?;
         self.0.add_header(name.into(), val.into())?;
@@ -147,6 +143,7 @@ impl Request {
     /// Send the request to the webserver
     pub async fn exec(self) -> Result<Response, Error> {
         let r = self.0.send_request().await.map(Response)?;
+        //https://crates.io/crates/hreq
 
         if r.status_code() > 299 && r.status_code() < 399 {
             if let Some(loc) = r.header("Location").and_then(|l| l.try_into().ok()) {

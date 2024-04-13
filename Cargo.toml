@@ -1,6 +1,6 @@
 [package]
 name = "generic-async-http-client"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["User65k <15049544+User65k@users.noreply.github.com>"]
 edition = "2021"
 
@@ -60,3 +60,7 @@ default = []
 async-std = "1.9.0"
 tokio = {version = "1.6.1", features=["rt", "net"]}
 serde = {version = "1.0", features=["derive"]}
+
+[package.metadata.docs.rs]
+features = ["proxies"]
+rustdoc-args = ["--cfg", "docsrs"]

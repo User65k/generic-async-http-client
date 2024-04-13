@@ -23,25 +23,25 @@ use http_types::Url as Uri;
 #[cfg(all(feature = "use_hyper", feature = "proxies"))]
 use hyper::http::uri::Uri;
 #[cfg(feature = "use_hyper")]
+use hyper::rt::{Read, ReadBufCursor, Write};
+#[cfg(feature = "use_hyper")]
 use tokio::{
     io::{AsyncRead as _, AsyncWrite as _},
     net::TcpStream,
 };
-#[cfg(feature = "use_hyper")]
-use hyper::rt::{Read, Write, ReadBufCursor};
 
-#[cfg(any(feature = "async_native_tls",feature = "hyper_native_tls"))]
+#[cfg(any(feature = "async_native_tls", feature = "hyper_native_tls"))]
 use async_native_tls::{TlsConnector, TlsStream};
 #[cfg(all(feature = "rustls", feature = "use_async_h1"))]
 use futures_rustls::{
     client::TlsStream,
-    rustls::{ClientConfig, RootCertStore, pki_types::ServerName},
+    rustls::{pki_types::ServerName, ClientConfig, RootCertStore},
     TlsConnector,
 };
 #[cfg(all(feature = "rustls", feature = "use_hyper"))]
 use tokio_rustls::{
     client::TlsStream,
-    rustls::{ClientConfig, RootCertStore, pki_types::ServerName},
+    rustls::{pki_types::ServerName, ClientConfig, RootCertStore},
     TlsConnector,
 };
 #[cfg(feature = "rustls")]
@@ -62,8 +62,8 @@ enum State {
 
 #[cfg(feature = "proxies")]
 pub mod proxy {
-    use async_trait::async_trait;
     use super::*;
+    use async_trait::async_trait;
 
     /// Sets the global proxy to a `&'static Proxy`.
     pub fn set_proxy(proxy: &'static dyn Proxy) {
@@ -93,8 +93,12 @@ pub mod proxy {
     pub struct NoProxy;
     #[async_trait]
     impl Proxy for NoProxy {
-        async fn connect_w_proxy(&self, host: &str, port: u16, _tls: bool) -> io::Result<TcpStream>
-        {
+        async fn connect_w_proxy(
+            &self,
+            host: &str,
+            port: u16,
+            _tls: bool,
+        ) -> io::Result<TcpStream> {
             TcpStream::connect((host, port)).await
         }
     }
@@ -177,7 +181,8 @@ pub mod proxy {
                     match scheme {
                         Some("http") => connect_via_http_prx(host, port, phost, pport).await,
                         Some(socks5) if socks5 == "socks5" || socks5 == "socks5h" => {
-                            connect_via_socks_prx(host, port, phost, pport, socks5 == "socks5h").await
+                            connect_via_socks_prx(host, port, phost, pport, socks5 == "socks5h")
+                                .await
                         }
                         _ => {
                             return Err(io::Error::new(
@@ -193,7 +198,9 @@ pub mod proxy {
 
     #[cfg(test)]
     mod tests {
-        use crate::tests::{assert_stream, TcpListener, spawn, block_on, listen_somewhere, WriteExt};
+        use crate::tests::{
+            assert_stream, block_on, listen_somewhere, spawn, TcpListener, WriteExt,
+        };
         #[test]
         fn prx_from_env() {
             async fn server(listener: TcpListener) -> std::io::Result<bool> {
@@ -205,10 +212,11 @@ pub mod proxy {
                 )
                 .await?;
                 stream.write_all(b"HTTP/1.1 200 Connected\r\n\r\n").await?;
-                
+
                 assert_stream(
                     &mut stream,
-                    format!("GET /bla HTTP/1.1\r\nhost: whatever\r\ncontent-length: 0\r\n\r\n").as_bytes(),
+                    format!("GET /bla HTTP/1.1\r\nhost: whatever\r\ncontent-length: 0\r\n\r\n")
+                        .as_bytes(),
                 )
                 .await?;
                 stream
@@ -225,7 +233,7 @@ pub mod proxy {
 
                 let r = crate::Request::get("http://whatever/bla");
                 let mut aw = r.exec().await?;
-    
+
                 assert_eq!(aw.status_code(), 200, "wrong status");
                 assert_eq!(aw.text().await?, "abc", "wrong text");
                 assert!(t.await?, "not cool");
@@ -241,7 +249,7 @@ pub mod proxy {
     feature = "hyper_native_tls",
     feature = "async_native_tls"
 ))]
-fn get_tls_connector() -> io::Result<TlsConnector>{
+fn get_tls_connector() -> io::Result<TlsConnector> {
     #[cfg(feature = "rustls")]
     {
         let mut root_store = RootCertStore::empty();
@@ -257,7 +265,7 @@ fn get_tls_connector() -> io::Result<TlsConnector>{
 
         Ok(TlsConnector::from(Arc::new(config)))
     }
-    #[cfg(any(feature = "async_native_tls",feature = "hyper_native_tls"))]
+    #[cfg(any(feature = "async_native_tls", feature = "hyper_native_tls"))]
     return Ok(TlsConnector::new());
 }
 
@@ -270,12 +278,16 @@ impl Stream {
         log::trace!("connected to {}:{}", host, port);
 
         if tls {
-            #[cfg(any(feature = "hyper_native_tls", feature = "async_native_tls", feature = "rustls"))]
+            #[cfg(any(
+                feature = "hyper_native_tls",
+                feature = "async_native_tls",
+                feature = "rustls"
+            ))]
             {
                 #[cfg(feature = "rustls")]
-                let host = ServerName::try_from(host).map_err(|_e| {
-                    io::Error::new(io::ErrorKind::InvalidInput, "Invalid DNS name")
-                })?.to_owned();
+                let host = ServerName::try_from(host)
+                    .map_err(|_e| io::Error::new(io::ErrorKind::InvalidInput, "Invalid DNS name"))?
+                    .to_owned();
                 let tlsc = get_tls_connector()?;
 
                 let tls = tlsc.connect(host, tcp).await;
@@ -289,7 +301,9 @@ impl Stream {
                     Err(e) => {
                         log::error!("TLS Handshake: {}", e);
                         #[cfg(feature = "rustls")]
-                        {Err(e)}
+                        {
+                            Err(e)
+                        }
                         #[cfg(any(feature = "hyper_native_tls", feature = "async_native_tls"))]
                         Err(io::Error::new(io::ErrorKind::InvalidInput, e))
                     }
@@ -314,7 +328,7 @@ impl Stream {
 
 #[cfg(feature = "use_hyper")]
 impl Stream {
-    fn get_proto(&self) -> hyper::Version {
+    pub fn get_proto(&self) -> hyper::Version {
         #[cfg(feature = "rustls")]
         if let State::Tls(ref t) = self.state {
             let (_, s) = t.get_ref();
