@@ -1,6 +1,8 @@
 use crate::tcp::Stream;
+#[cfg(feature = "http2")]
+use hyper::client::conn::http2;
 use hyper::{
-    client::conn::{http1, http2},
+    client::conn::http1,
     header::{HeaderValue, HOST},
     http::uri::{Scheme, Uri},
 };
@@ -37,6 +39,7 @@ pub enum HyperClient {
     #[default]
     New,
     H1(http1::SendRequest<super::Body>),
+    #[cfg(feature = "http2")]
     H2(http2::SendRequest<super::Body>),
 }
 
@@ -55,8 +58,11 @@ fn origin_form(uri: &mut Uri) {
     *uri = path
 }
 
+#[cfg(feature = "http2")]
 #[derive(Clone)]
 struct TokioExecutor;
+
+#[cfg(feature = "http2")]
 impl<F> hyper::rt::Executor<F> for TokioExecutor
 where
     F: std::future::Future + Send + 'static,
@@ -76,6 +82,7 @@ impl HyperClient {
             HyperClient::New => {
                 let io = connect_to_uri(req.uri()).await?;
                 match io.get_proto() {
+                    #[cfg(feature = "http2")]
                     hyper::Version::HTTP_2 => {
                         let (sender, conn) =
                             hyper::client::conn::http2::handshake(TokioExecutor, io).await?;
@@ -99,14 +106,18 @@ impl HyperClient {
                 };
             }
             HyperClient::H1(_) => {}
+            #[cfg(feature = "http2")]
             HyperClient::H2(_) => {}
         }
 
-        
         match self {
             HyperClient::New => unreachable!(),
             HyperClient::H1(sender) => {
-                let uri = req.uri().authority().cloned().expect("authority implies host");
+                let uri = req
+                    .uri()
+                    .authority()
+                    .cloned()
+                    .expect("authority implies host");
                 req.headers_mut().entry(HOST).or_insert_with(|| {
                     let hostname = uri.host();
                     if let Some(port) = uri.port() {
@@ -116,12 +127,13 @@ impl HyperClient {
                         HeaderValue::from_str(hostname)
                     }
                     .expect("uri host is valid header value")
-                });      
+                });
 
                 origin_form(req.uri_mut());
 
                 sender.send_request(req).await.map_err(|e| e.into())
-            },
+            }
+            #[cfg(feature = "http2")]
             HyperClient::H2(sender) => sender.send_request(req).await.map_err(|e| e.into()),
         }
     }
