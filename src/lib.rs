@@ -1,22 +1,23 @@
-/*! A generic async HTTP request create.
-
-It is meant to be a thin wrapper around various HTTP clients
-and handles TLS, serialisation and parsing.
-
-The main goal is to allow binaries (that pull in some libraries that make use of a HTTP client)
-to specify what implementation should be used.
-
-And if there is a Proxy. If not specified auto detection is performed by looking at HTTP_PROXY.
-
-You need to specify via features what crates are used to the actual work.
-
-- `use_hyper` (and tokio)
-- `use_async_h1` (and async-std)
-
-Without anything specified you will end up with *No HTTP backend was selected*.
-
-If performing more than one HTTP Request you should favor the use of [`Session`] over [`Request`].
-*/
+#![doc = include_str!("../README.md")]
+/*!
+ * # Example
+ * ```
+ * # use generic_async_http_client::{Request, Response, Error};
+ * # use serde::Serialize;
+ * #[derive(Serialize)]
+ * struct ContactForm {
+ *     email: String,
+ *     text: String,
+ * }
+ * async fn post_form(form: &ContactForm) -> Result<(), Error> {
+ *    let req = Request::post("http://example.com/").form(form)?;
+ *    assert_eq!(req.exec().await?.text().await?, "ok");
+ *    Ok(())
+ * }
+ * ```
+ * 
+ * If performing more than one HTTP Request you should favor the use of [`Session`] over [`Request`].
+ */
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
@@ -53,7 +54,9 @@ pub use body::Body;
 pub use header::{HeaderName, HeaderValue};
 pub use imp::Error;
 
-#[cfg(test)]
+#[cfg(all(test,
+    any(feature = "use_hyper", feature = "use_async_h1")
+))]
 mod tests {
     #[cfg(feature = "use_async_h1")]
     pub(crate) use async_std::{

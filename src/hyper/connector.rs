@@ -43,25 +43,9 @@ pub enum HyperClient {
     H2(http2::SendRequest<super::Body>),
 }
 
-fn origin_form(uri: &mut Uri) {
-    let path = match uri.path_and_query() {
-        Some(path) if path.as_str() != "/" => {
-            let mut parts = hyper::http::uri::Parts::default();
-            parts.path_and_query = Some(path.clone());
-            Uri::from_parts(parts).expect("path is valid uri")
-        }
-        _none_or_just_slash => {
-            debug_assert!(Uri::default() == "/");
-            Uri::default()
-        }
-    };
-    *uri = path
-}
-
-#[cfg(feature = "http2")]
 #[derive(Clone)]
+#[cfg(feature = "http2")]
 struct TokioExecutor;
-
 #[cfg(feature = "http2")]
 impl<F> hyper::rt::Executor<F> for TokioExecutor
 where
@@ -110,17 +94,18 @@ impl HyperClient {
             HyperClient::H2(_) => {}
         }
 
+        
         match self {
             HyperClient::New => unreachable!(),
             HyperClient::H1(sender) => {
-                let uri = req
-                    .uri()
-                    .authority()
-                    .cloned()
-                    .expect("authority implies host");
-                req.headers_mut().entry(HOST).or_insert_with(|| {
-                    let hostname = uri.host();
-                    if let Some(port) = uri.port() {
+
+                let (mut parts, body) = req.into_parts();
+                let mut up = parts.uri.into_parts();
+
+                let auth = up.authority.take().expect("authority implies host");
+                parts.headers.entry(HOST).or_insert_with(|| {
+                    let hostname = auth.host();
+                    if let Some(port) = auth.port() {
                         let s = format!("{}:{}", hostname, port);
                         HeaderValue::from_str(&s)
                     } else {
@@ -129,10 +114,23 @@ impl HyperClient {
                     .expect("uri host is valid header value")
                 });
 
-                origin_form(req.uri_mut());
+                //origin_form
+                parts.uri = match up.path_and_query {
+                    Some(path) if path.as_str() != "/" => {
+                        let mut parts = hyper::http::uri::Parts::default();
+                        parts.path_and_query = Some(path);
+                        Uri::from_parts(parts).expect("path is valid uri")
+                    }
+                    _none_or_just_slash => {
+                        debug_assert!(Uri::default() == "/");
+                        Uri::default()
+                    }
+                };
+
+                let req = hyper::Request::from_parts(parts, body);
 
                 sender.send_request(req).await.map_err(|e| e.into())
-            }
+            },
             #[cfg(feature = "http2")]
             HyperClient::H2(sender) => sender.send_request(req).await.map_err(|e| e.into()),
         }

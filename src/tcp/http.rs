@@ -45,16 +45,13 @@ pub async fn connect_via_http_prx(
             read = &buffer[..r];
         }
     }
-    Err(io::Error::new(
-        io::ErrorKind::InvalidData,
-        host.to_string(),
-    ))
+    Err(io::Error::new(io::ErrorKind::InvalidData, host.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{assert_stream, TcpListener, spawn, block_on, listen_somewhere};
+    use crate::tests::{assert_stream, block_on, listen_somewhere, spawn, TcpListener};
     #[test]
     fn http_proxy() {
         async fn server(listener: TcpListener) -> std::io::Result<bool> {
@@ -66,11 +63,7 @@ mod tests {
             )
             .await?;
             stream.write_all(b"HTTP/1.1 200 Connected\r\n\r\n").await?;
-            assert_stream(
-                &mut stream,
-                b"n0ice",
-            )
-            .await?;
+            assert_stream(&mut stream, b"n0ice").await?;
 
             Ok(true)
         }
@@ -78,12 +71,7 @@ mod tests {
             let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
-            let mut stream = connect_via_http_prx(
-                "host",
-                1234,
-                &phost,
-                pport,
-            ).await?;
+            let mut stream = connect_via_http_prx("host", 1234, &phost, pport).await?;
             stream.write_all(b"n0ice").await?;
 
             assert!(t.await?, "not cool");
