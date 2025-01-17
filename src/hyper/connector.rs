@@ -109,23 +109,26 @@ impl HyperClient {
             HyperClient::H2(_) => {}
         }
 
-        let uri = req.uri().clone();
-        req.headers_mut().entry(HOST).or_insert_with(|| {
-            let hostname = uri.host().expect("authority implies host");
-            if let Some(port) = uri.port() {
-                let s = format!("{}:{}", hostname, port);
-                HeaderValue::from_str(&s)
-            } else {
-                HeaderValue::from_str(hostname)
-            }
-            .expect("uri host is valid header value")
-        });
-
-        origin_form(req.uri_mut());
-
+        
         match self {
             HyperClient::New => unreachable!(),
-            HyperClient::H1(sender) => sender.send_request(req).await.map_err(|e| e.into()),
+            HyperClient::H1(sender) => {
+                let uri = req.uri().authority().cloned().expect("authority implies host");
+                req.headers_mut().entry(HOST).or_insert_with(|| {
+                    let hostname = uri.host();
+                    if let Some(port) = uri.port() {
+                        let s = format!("{}:{}", hostname, port);
+                        HeaderValue::from_str(&s)
+                    } else {
+                        HeaderValue::from_str(hostname)
+                    }
+                    .expect("uri host is valid header value")
+                });      
+
+                origin_form(req.uri_mut());
+
+                sender.send_request(req).await.map_err(|e| e.into())
+            },
             #[cfg(feature = "http2")]
             HyperClient::H2(sender) => sender.send_request(req).await.map_err(|e| e.into()),
         }
