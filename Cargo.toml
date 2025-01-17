@@ -49,7 +49,7 @@ use_web_sys = ["web-sys", "wasm-bindgen", "wasm-bindgen-futures", "js-sys"]
 
 http2 = ["hyper/http2"]
 cookies = ["cookie_store"]
-proxies = ["async-trait"]
+proxies = ["async-trait", "tokio/io-util"]
 
 rustls = ["futures-rustls", "tokio-rustls", "webpki-roots"]
 async_native_tls = ["use_async_h1","async-native-tls/runtime-async-std"]
@@ -59,7 +59,7 @@ default = []
 
 [dev-dependencies]
 async-std = "1.9.0"
-tokio = {version = "1.6.1", features=["rt", "net"]}
+tokio = {version = "1.6.1", features=["rt", "net", "io-util"]}
 serde = {version = "1.0", features=["derive"]}
 
 [package.metadata.docs.rs]
