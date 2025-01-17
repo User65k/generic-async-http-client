@@ -51,10 +51,7 @@ pub async fn connect_via_socks_prx(
         let a = (host, port)
             .to_socket_addrs()?
             .next()
-            .ok_or_else(|| io::Error::new(
-                io::ErrorKind::NotFound,
-                "Could not resolve the host",
-            ))?;
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Could not resolve the host"))?;
         match a.ip() {
             IpAddr::V4(ip) => {
                 buf.push(1);
@@ -68,16 +65,13 @@ pub async fn connect_via_socks_prx(
     }
     buf.extend_from_slice(&port.to_be_bytes());
     let mut socket = TcpStream::connect((phost, pport)).await?;
-    socket.write_all(b"\x05\x01\0").await?;//client auth methods: [no auth]
+    socket.write_all(b"\x05\x01\0").await?; //client auth methods: [no auth]
     let mut auth = [0, 0];
     socket.read_exact(&mut auth).await?;
-    if auth[0]==5 && auth[1]==0 {
+    if auth[0] == 5 && auth[1] == 0 {
         //proxy wants no auth
-    }else{
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "socks error",
-        ));
+    } else {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "socks error"));
     }
     socket.write_all(&buf).await?;
     let bytes_read = socket.read(&mut buf[..5]).await?;
@@ -91,14 +85,14 @@ pub async fn connect_via_socks_prx(
         match socks_header_len.checked_sub(bytes_read) {
             Some(missing_bytes) if missing_bytes > 0 => {
                 buf.resize(socks_header_len, 0);
-                socket.read_exact(&mut buf[bytes_read..socks_header_len]).await?;
+                socket
+                    .read_exact(&mut buf[bytes_read..socks_header_len])
+                    .await?;
             }
-            Some(_) => {}   //0
-            None => {       //already read to much
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "socks error",
-                ))
+            Some(_) => {} //0
+            None => {
+                //already read to much
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "socks error"));
             }
         }
         Ok(socket)
@@ -110,11 +104,10 @@ pub async fn connect_via_socks_prx(
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{assert_stream, TcpListener, spawn, block_on, listen_somewhere};
+    use crate::tests::{assert_stream, block_on, listen_somewhere, spawn, TcpListener};
 
     #[test]
     fn socks5h() {
@@ -123,21 +116,17 @@ mod tests {
 
             assert_stream(
                 &mut stream,
-                b"\x05\x01\0",//client auth methods: [no auth]
+                b"\x05\x01\0", //client auth methods: [no auth]
             )
             .await?;
-            stream.write_all(b"\x05\0").await?;//proxy wants no auth
+            stream.write_all(b"\x05\0").await?; //proxy wants no auth
             assert_stream(
                 &mut stream,
                 b"\x05\x01\0\x03\x04host\x12\x34", //version connect reserved dns len host port
             )
             .await?;
             stream.write_all(b"\x05\0\0\x03\x04host\x12\x34").await?; //version ok reserved dns len host port
-            assert_stream(
-                &mut stream,
-                b"n0ice",
-            )
-            .await?;
+            assert_stream(&mut stream, b"n0ice").await?;
             stream.write_all(b"indeed").await?; //version ok reserved dns len host port
 
             Ok(true)
@@ -146,19 +135,9 @@ mod tests {
             let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
-            let mut stream = connect_via_socks_prx(
-                "host",
-                0x1234,
-                &phost,
-                pport,
-                true,
-            ).await?;
+            let mut stream = connect_via_socks_prx("host", 0x1234, &phost, pport, true).await?;
             stream.write_all(b"n0ice").await?;
-            assert_stream(
-                &mut stream,
-                b"indeed",
-            )
-            .await?;
+            assert_stream(&mut stream, b"indeed").await?;
 
             assert!(t.await?, "not cool");
             Ok(())
@@ -172,21 +151,19 @@ mod tests {
 
             assert_stream(
                 &mut stream,
-                b"\x05\x01\0",//client auth methods: [no auth]
+                b"\x05\x01\0", //client auth methods: [no auth]
             )
             .await?;
-            stream.write_all(b"\x05\0").await?;//proxy wants no auth
+            stream.write_all(b"\x05\0").await?; //proxy wants no auth
             assert_stream(
                 &mut stream,
                 b"\x05\x01\0\x01\x7f\0\0\x01\x12\x34", //version connect reserved dns len host port
             )
             .await?;
-            stream.write_all(b"\x05\0\0\x01\x7f\0\0\x01\x12\x34").await?; //version ok reserved dns len host port
-            assert_stream(
-                &mut stream,
-                b"n0ice",
-            )
-            .await?;
+            stream
+                .write_all(b"\x05\0\0\x01\x7f\0\0\x01\x12\x34")
+                .await?; //version ok reserved dns len host port
+            assert_stream(&mut stream, b"n0ice").await?;
 
             Ok(true)
         }
@@ -194,13 +171,8 @@ mod tests {
             let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
-            let mut stream = connect_via_socks_prx(
-                "127.0.0.1",
-                0x1234,
-                &phost,
-                pport,
-                true,
-            ).await?;
+            let mut stream =
+                connect_via_socks_prx("127.0.0.1", 0x1234, &phost, pport, true).await?;
             stream.write_all(b"n0ice").await?;
 
             assert!(t.await?, "not cool");
@@ -215,21 +187,19 @@ mod tests {
 
             assert_stream(
                 &mut stream,
-                b"\x05\x01\0",//client auth methods: [no auth]
+                b"\x05\x01\0", //client auth methods: [no auth]
             )
             .await?;
-            stream.write_all(b"\x05\0").await?;//proxy wants no auth
+            stream.write_all(b"\x05\0").await?; //proxy wants no auth
             assert_stream(
                 &mut stream,
                 b"\x05\x01\0\x04\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x01\x12\x34", //version connect reserved dns len host port
             )
             .await?;
-            stream.write_all(b"\x05\0\0\x04\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x01\x12\x34").await?; //version ok reserved dns len host port
-            assert_stream(
-                &mut stream,
-                b"n0ice",
-            )
-            .await?;
+            stream
+                .write_all(b"\x05\0\0\x04\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\x01\x12\x34")
+                .await?; //version ok reserved dns len host port
+            assert_stream(&mut stream, b"n0ice").await?;
 
             Ok(true)
         }
@@ -237,13 +207,7 @@ mod tests {
             let (listener, pport, phost) = listen_somewhere().await?;
             let t = spawn(server(listener));
 
-            let mut stream = connect_via_socks_prx(
-                "::1",
-                0x1234,
-                &phost,
-                pport,
-                true,
-            ).await?;
+            let mut stream = connect_via_socks_prx("::1", 0x1234, &phost, pport, true).await?;
             stream.write_all(b"n0ice").await?;
 
             assert!(t.await?, "not cool");

@@ -29,6 +29,7 @@ You need to specify via features what crates are used to do the actual work.
 |proxies|Add support for Socks5 and HTTP proxy|
 |hyper_native_tls|Use [hyper](https://crates.io/crates/hyper) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/generic-async-http-client/test_hyper_nativetls.yml)|
 |async_native_tls|Use [async_h1](https://crates.io/crates/async_h1) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/generic-async-http-client/test_async_std_nativetls.yml)|
+|http2|Use http2 if available (only works with use_hyper)|
 
 Without anything specified you will end up with *No HTTP backend was selected*.
 If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the appropriate features.
@@ -45,7 +46,7 @@ A crate I found did what I needed but used async-h1 and async-std. While that wo
 So I wrote this. You can specify which backend to use.
 In the Webserver case, using tokio which is already a dependency VS async-std did lead to 81 less crates and a 350kB smaller binary.
 Using (and [async-acme](https://crates.io/crates/async-acme)):
-```
+```toml
 [profile.release]
 lto = "fat"
 codegen-units = 1

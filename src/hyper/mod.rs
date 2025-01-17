@@ -39,9 +39,9 @@ pub struct Resp {
     resp: Response<Incoming>,
 }
 
-impl Into<Response<Incoming>> for crate::Response {
-    fn into(self) -> Response<Incoming> {
-        self.0.resp
+impl From<crate::Response> for Response<Incoming> {
+    fn from(val: crate::Response) -> Self {
+        val.0.resp
     }
 }
 
@@ -121,8 +121,12 @@ impl Req {
         self.body = query.into();
         Ok(())
     }
+    #[inline]
     pub fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), Error> {
-        let query = serde_qs::to_string(&query)?;
+        // codegen trampoline: https://github.com/rust-lang/rust/issues/77960
+        self._query(serde_qs::to_string(&query)?)
+    }
+    fn _query(&mut self, query: String) -> Result<(), Error> {
         let old = self.req.uri_ref().expect("no uri");
 
         let mut p_and_p = String::with_capacity(old.path().len() + query.len() + 1);
