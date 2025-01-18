@@ -1,6 +1,6 @@
 [package]
 name = "generic-async-http-client"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["User65k <15049544+User65k@users.noreply.github.com>"]
 edition = "2021"
 
