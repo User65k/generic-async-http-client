@@ -259,7 +259,7 @@ fn get_tls_connector() -> io::Result<TlsConnector> {
             .with_root_certificates(root_store)
             .with_no_client_auth();
 
-        #[cfg(feature = "use_hyper")]
+        #[cfg(all(feature = "use_hyper", feature = "http2"))]
         config.alpn_protocols.push(b"h2".to_vec());
         config.alpn_protocols.push(b"http/1.1".to_vec());
 
