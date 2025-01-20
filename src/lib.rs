@@ -24,13 +24,14 @@
 #[path = "dummy/mod.rs"]
 mod imp;
 
-#[cfg(any(feature = "use_hyper", feature = "use_async_h1"))]
+#[cfg(any(feature = "use_hyper", feature = "use_async_h1", feature = "proxies"))]
 mod tcp;
 #[cfg(all(
     any(feature = "use_hyper", feature = "use_async_h1"),
     feature = "proxies"
 ))]
 #[cfg_attr(docsrs, doc(cfg(feature = "proxies")))]
+#[doc(inline)]
 pub use tcp::proxy;
 
 #[cfg(feature = "use_async_h1")]

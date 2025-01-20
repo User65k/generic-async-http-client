@@ -1,7 +1,7 @@
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-#[cfg(feature = "rustls")]
+#[cfg(feature = "rustls_byoc")]
 use std::{convert::TryFrom, sync::Arc};
 
 #[cfg(feature = "proxies")]
@@ -32,19 +32,19 @@ use tokio::{
 
 #[cfg(any(feature = "async_native_tls", feature = "hyper_native_tls"))]
 use async_native_tls::{TlsConnector, TlsStream};
-#[cfg(all(feature = "rustls", feature = "use_async_h1"))]
+#[cfg(all(feature = "rustls_byoc", feature = "use_async_h1"))]
 use futures_rustls::{
     client::TlsStream,
     rustls::{pki_types::ServerName, ClientConfig, RootCertStore},
     TlsConnector,
 };
-#[cfg(all(feature = "rustls", feature = "use_hyper"))]
+#[cfg(all(feature = "rustls_byoc", feature = "use_hyper"))]
 use tokio_rustls::{
     client::TlsStream,
     rustls::{pki_types::ServerName, ClientConfig, RootCertStore},
     TlsConnector,
 };
-#[cfg(feature = "rustls")]
+#[cfg(feature = "rustls_byoc")]
 use webpki_roots::TLS_SERVER_ROOTS;
 
 pub struct Stream {
@@ -52,7 +52,7 @@ pub struct Stream {
 }
 enum State {
     #[cfg(any(
-        feature = "rustls",
+        feature = "rustls_byoc",
         feature = "hyper_native_tls",
         feature = "async_native_tls"
     ))]
@@ -245,12 +245,12 @@ pub mod proxy {
 }
 
 #[cfg(any(
-    feature = "rustls",
+    feature = "rustls_byoc",
     feature = "hyper_native_tls",
     feature = "async_native_tls"
 ))]
 fn get_tls_connector() -> io::Result<TlsConnector> {
-    #[cfg(feature = "rustls")]
+    #[cfg(feature = "rustls_byoc")]
     {
         let mut root_store = RootCertStore::empty();
         root_store.extend(TLS_SERVER_ROOTS.iter().cloned());
@@ -281,10 +281,10 @@ impl Stream {
             #[cfg(any(
                 feature = "hyper_native_tls",
                 feature = "async_native_tls",
-                feature = "rustls"
+                feature = "rustls_byoc"
             ))]
             {
-                #[cfg(feature = "rustls")]
+                #[cfg(feature = "rustls_byoc")]
                 let host = ServerName::try_from(host)
                     .map_err(|_e| io::Error::new(io::ErrorKind::InvalidInput, "Invalid DNS name"))?
                     .to_owned();
@@ -300,7 +300,7 @@ impl Stream {
                     }
                     Err(e) => {
                         log::error!("TLS Handshake: {}", e);
-                        #[cfg(feature = "rustls")]
+                        #[cfg(feature = "rustls_byoc")]
                         {
                             Err(e)
                         }
@@ -310,7 +310,7 @@ impl Stream {
                 };
             }
             #[cfg(not(any(
-                feature = "rustls",
+                feature = "rustls_byoc",
                 feature = "hyper_native_tls",
                 feature = "async_native_tls"
             )))]
@@ -329,7 +329,7 @@ impl Stream {
 #[cfg(feature = "use_hyper")]
 impl Stream {
     pub fn get_proto(&self) -> hyper::Version {
-        #[cfg(feature = "rustls")]
+        #[cfg(feature = "rustls_byoc")]
         if let State::Tls(ref t) = self.state {
             let (_, s) = t.get_ref();
             if Some(&b"h2"[..]) == s.alpn_protocol() {
@@ -349,7 +349,7 @@ impl Write for Stream {
         let pin = self.get_mut();
         match pin.state {
             #[cfg(any(
-                feature = "rustls",
+                feature = "rustls_byoc",
                 feature = "hyper_native_tls",
                 feature = "async_native_tls"
             ))]
@@ -362,7 +362,7 @@ impl Write for Stream {
         let pin = self.get_mut();
         match pin.state {
             #[cfg(any(
-                feature = "rustls",
+                feature = "rustls_byoc",
                 feature = "hyper_native_tls",
                 feature = "async_native_tls"
             ))]
@@ -376,7 +376,7 @@ impl Write for Stream {
         let pin = self.get_mut();
         match pin.state {
             #[cfg(any(
-                feature = "rustls",
+                feature = "rustls_byoc",
                 feature = "hyper_native_tls",
                 feature = "async_native_tls"
             ))]
@@ -393,7 +393,7 @@ impl Write for Stream {
         let pin = self.get_mut();
         match pin.state {
             #[cfg(any(
-                feature = "rustls",
+                feature = "rustls_byoc",
                 feature = "hyper_native_tls",
                 feature = "async_native_tls"
             ))]
@@ -412,7 +412,7 @@ impl Read for Stream {
         let pin = self.get_mut();
         match pin.state {
             #[cfg(any(
-                feature = "rustls",
+                feature = "rustls_byoc",
                 feature = "hyper_native_tls",
                 feature = "async_native_tls"
             ))]
@@ -431,7 +431,7 @@ impl Read for Stream {
             let mut tbuf = tokio::io::ReadBuf::uninit(unsafe { buf.as_mut() });
             let p = match pin.state {
                 #[cfg(any(
-                    feature = "rustls",
+                    feature = "rustls_byoc",
                     feature = "hyper_native_tls",
                     feature = "async_native_tls"
                 ))]
