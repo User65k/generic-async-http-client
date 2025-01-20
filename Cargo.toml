@@ -66,6 +66,10 @@ async-std = "1"
 tokio = {version = "1", features=["rt", "net", "io-util"]}
 serde = {version = "1.0", features=["derive"]}
 
+[[example]]
+name = "httpbin_org"
+path = "examples/httpbin_org.rs"
+
 [package.metadata.docs.rs]
 features = ["proxies", "use_hyper"]
 rustdoc-args = ["--cfg", "docsrs"]
