@@ -1,0 +1,24 @@
+name: test_https
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test rustls ring
+      run: cargo r --example httpbin_org -F rustls_ring,use_hyper
+    - name: Test rustls aws-lc-rs
+      run: cargo r --example httpbin_org -F rustls_aws_lc_rs,use_hyper
+    - name: Test native_tls
+      run: cargo r --example httpbin_org -F hyper_native_tls,use_hyper

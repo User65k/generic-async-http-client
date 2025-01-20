@@ -25,11 +25,14 @@ You need to specify via features what crates are used to do the actual work.
 |---|---|
 |use_hyper|Use [hyper](https://crates.io/crates/hyper) for HTTP ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/generic-async-http-client/test_hyper_rustls.yml)|
 |use_async_h1|Use [async_h1](https://crates.io/crates/async_h1) for HTTP ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/generic-async-http-client/test_async_std_rustls.yml)|
-|rustls|Add support for HTTPS via [rustls](https://crates.io/crates/rustls)|
+|rustls_byoc|Add support for HTTPS via [rustls](https://crates.io/crates/rustls) - **You** need to set a [CryptoProvider](https://docs.rs/rustls/latest/rustls/crypto/struct.CryptoProvider.html#using-the-per-process-default-cryptoprovider)|
+|rustls_ring|Like `rustls_byoc` but use [ring](https://crates.io/crates/ring) for crypto|
+|rustls_aws_lc_rs|Like `rustls_byoc` but use [aws-lc-rs](https://crates.io/crates/aws-lc-rs) for crypto|
+|rustls_fips|Like `rustls_byoc` but use [aws-lc-rs](https://crates.io/crates/aws-lc-rs) in FIPS mode for crypto|
 |proxies|Add support for Socks5 and HTTP proxy|
 |hyper_native_tls|Use [hyper](https://crates.io/crates/hyper) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/generic-async-http-client/test_hyper_nativetls.yml)|
 |async_native_tls|Use [async_h1](https://crates.io/crates/async_h1) for HTTP and do HTTPS via [native_tls](https://crates.io/crates/native_tls)  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/User65k/generic-async-http-client/test_async_std_nativetls.yml)|
-|http2|Use http2 if available (only works with use_hyper)|
+|http2|Use http2 if available (only works with `use_hyper`)|
 
 Without anything specified you will end up with *No HTTP backend was selected*.
 If you use this crate for a library, please [reexport](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features) the appropriate features.

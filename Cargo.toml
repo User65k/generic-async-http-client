@@ -51,8 +51,11 @@ http2 = ["hyper/http2"]
 cookies = ["cookie_store"]
 proxies = ["async-trait", "tokio/io-util"]
 
-rustls = ["futures-rustls/ring", "tokio-rustls/ring", "webpki-roots"]
-rustls_aws_lc_rs = ["futures-rustls/aws_lc_rs", "tokio-rustls/aws_lc_rs", "webpki-roots"]
+rustls = ["rustls_ring"]
+rustls_byoc    =   ["futures-rustls",           "tokio-rustls",           "webpki-roots"]
+rustls_ring    =   ["futures-rustls/ring",      "tokio-rustls/ring",      "rustls_byoc"]
+rustls_aws_lc_rs = ["futures-rustls/aws_lc_rs", "tokio-rustls/aws_lc_rs", "rustls_byoc"]
+rustls_fips    =   ["futures-rustls/fips",      "tokio-rustls/fips",      "rustls_byoc"]
 async_native_tls = ["use_async_h1","async-native-tls/runtime-async-std"]
 hyper_native_tls = ["use_hyper","async-native-tls/runtime-tokio"]
 
@@ -63,6 +66,10 @@ async-std = "1"
 tokio = {version = "1", features=["rt", "net", "io-util"]}
 serde = {version = "1.0", features=["derive"]}
 
+[[example]]
+name = "httpbin_org"
+path = "examples/httpbin_org.rs"
+
 [package.metadata.docs.rs]
-features = ["proxies"]
+features = ["proxies", "use_hyper"]
 rustdoc-args = ["--cfg", "docsrs"]
