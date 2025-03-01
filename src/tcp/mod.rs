@@ -85,11 +85,13 @@ pub mod proxy {
     }
     static mut GLOBAL_PROXY: &dyn Proxy = &EnvProxy;
 
+    /// Trait to implement custom proxies
     #[async_trait]
     pub trait Proxy: Sync + Send {
+        /// create a new TCP connection to the target
         async fn connect_w_proxy(&self, host: &str, port: u16, tls: bool) -> io::Result<TcpStream>;
     }
-
+    /// Use a direct connection
     pub struct NoProxy;
     #[async_trait]
     impl Proxy for NoProxy {
@@ -102,7 +104,8 @@ pub mod proxy {
             TcpStream::connect((host, port)).await
         }
     }
-    ///
+    /// Default Proxy. Performs auto detection from ENV. Supports the schemes `http(s)://` and `socks5(h)://`.
+    /// 
     /// `http_proxy`, `HTTPS_PROXY` should be set for protocol-specific proxies.
     /// General proxy should be set with `ALL_PROXY`
     ///
