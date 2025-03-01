@@ -19,15 +19,15 @@ impl Response {
     }
     /// Return the Body as some type deserialized from JSON
     pub async fn json<D: DeserializeOwned>(&mut self) -> Result<D, Error> {
-        self.0.json().await
+        Ok(self.0.json().await?)
     }
     /// Return the whole Body as Bytes
     pub async fn content(&mut self) -> Result<Vec<u8>, Error> {
-        self.0.bytes().await
+        Ok(self.0.bytes().await?)
     }
     /// Return the whole Body as String
     pub async fn text(&mut self) -> Result<String, Error> {
-        self.0.string().await
+        Ok(self.0.string().await?)
     }
     /// If there are multiple values associated with the key, then the first one is returned.
     pub fn header(

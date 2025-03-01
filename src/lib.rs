@@ -53,7 +53,37 @@ pub use response::Response;
 //pub use session::Session;
 pub use body::Body;
 pub use header::{HeaderName, HeaderValue};
-pub use imp::Error;
+
+#[derive(Debug)]
+pub enum Error {
+    Io(std::io::Error),
+    HTTPServerErr(u16, Response),
+    HTTPClientErr(u16, Response),
+    Other(imp::Error)
+}
+
+impl std::error::Error for Error {}
+use std::fmt;
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::Other(i) => write!(f, "{}", i),
+            Error::HTTPClientErr(i, r) => write!(f, "{} {}", i, r.status()),
+            Error::HTTPServerErr(i, r) => write!(f, "{} {}", i, r.status()),
+            Error::Io(i) => write!(f, "{}", i),
+        }
+    }
+}
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+impl From<std::convert::Infallible> for Error {
+    fn from(_e: std::convert::Infallible) -> Self {
+        unreachable!();
+    }
+}
 
 #[cfg(all(test,
     any(feature = "use_hyper", feature = "use_async_h1")

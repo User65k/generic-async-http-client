@@ -2,7 +2,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::convert::TryFrom;
 
-//TODO maybe add some mock stuff for testing
+static ERR_MSG: &str = "No HTTP backend was selected";
 
 #[derive(Debug)]
 pub struct Req {}
@@ -37,8 +37,8 @@ impl Req {
         Ok(Req {})
     }
     pub async fn send_request(self) -> Result<Resp, Error> {
-        eprintln!("No HTTP backend was selected");
-        println!("No HTTP backend was selected");
+        eprintln!("{}", ERR_MSG);
+        println!("{}", ERR_MSG);
         Err(Error {})
     }
     pub fn json<T: Serialize + ?Sized>(&mut self, _json: &T) -> Result<(), Error> {
@@ -91,7 +91,12 @@ impl std::error::Error for Error {}
 use std::fmt;
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "not implemented")
+        f.write_str(ERR_MSG)
+    }
+}
+impl From<Error> for crate::Error {
+    fn from(e: Error) -> Self {
+        Self::Other(e)
     }
 }
 

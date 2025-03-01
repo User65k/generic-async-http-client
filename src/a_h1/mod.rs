@@ -6,8 +6,8 @@ pub use http_types::{
 };
 use http_types::{Method, Request, Response, Url};
 use serde::Serialize;
-use std::str::FromStr;
 use std::convert::{TryFrom, TryInto};
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct Req {
@@ -17,22 +17,21 @@ pub struct Resp {
     resp: Response,
 }
 
-impl Into<Response> for crate::Response {
-    fn into(self) -> Response {
-        self.0.resp
+impl From<crate::Response> for Response {
+    fn from(val: crate::Response) -> Self {
+        val.0.resp
     }
 }
 
-impl<M,U> TryFrom<(M,U)> for crate::Request
+impl<M, U> TryFrom<(M, U)> for crate::Request
 where
     Method: TryFrom<M>,
     Url: TryFrom<U>,
     <Url as TryFrom<U>>::Error: std::fmt::Debug,
-    {
-
+{
     type Error = <Method as TryFrom<M>>::Error;
 
-    fn try_from(value: (M,U)) -> Result<Self, Self::Error> {
+    fn try_from(value: (M, U)) -> Result<Self, Self::Error> {
         let req = Request::new(value.0.try_into()?, value.1);
         Ok(crate::Request(Req { req }))
     }
@@ -87,6 +86,10 @@ impl Req {
         let transport = Stream::connect(host, port, tls).await?;
 
         let resp = async_h1::connect(transport, self.req).await?;
+        //TODO implement clonable connection (RW) like FCGI
+        //check connection headers, connect method and upgrades
+        //free slot once body is consumed
+
         Ok(Resp { resp })
     }
     pub fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
@@ -184,7 +187,15 @@ impl std::error::Error for Error {}
 use std::fmt;
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{:?}", self)
+    }
+}
+impl From<Error> for crate::Error {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::Io(error) => Self::Io(error),
+            e => Self::Other(e),
+        }        
     }
 }
 
