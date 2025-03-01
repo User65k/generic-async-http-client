@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use crate::imp;
 
 /// A HTTP Header Name
-/// 
+///
 /// It can be converted from `&[u8]` and `&str`.
 /// You can obtain `&str` and `&[u8]` references and compare with str.
 /// ```
@@ -140,7 +140,7 @@ impl PartialEq<&str> for HeaderName {
 }
 
 /// A HTTP Header Value
-/// 
+///
 /// It can be converted from `&[u8]` and `&str`.
 /// You can obtain a `&[u8]` reference and compare with str and `&[u8]`.
 /// You can also convert it to `String` if it is valid utf-8.
@@ -155,6 +155,28 @@ impl PartialEq<&str> for HeaderName {
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct HeaderValue(imp::HeaderValue);
+
+impl HeaderValue {
+    /// Try to parse the HeaderValue as some Type (implementing FromStr)
+    /// ```
+    /// # use std::convert::TryInto;
+    /// # use generic_async_http_client::HeaderValue;
+    /// let hv: HeaderValue = b"4"[..].try_into().unwrap();
+    /// let four: u32 = hv.parse().unwrap();
+    /// ```
+    pub fn parse<T: std::str::FromStr>(&self) -> Option<T>
+    {
+        self.as_str().ok()?.parse::<T>().ok()
+    }
+    // Get a `&str` reference of this HeaderValue
+    pub fn as_str(&self) -> Result<&str, std::str::Utf8Error>
+    {
+        #[cfg(feature = "use_async_h1")]
+        return Ok(self.0.as_str());
+        #[cfg(not(feature = "use_async_h1"))]
+        std::str::from_utf8(self.as_ref())
+    }
+}
 impl<'a> TryFrom<&'a str> for HeaderValue {
     type Error = imp::Error;
     #[inline]
