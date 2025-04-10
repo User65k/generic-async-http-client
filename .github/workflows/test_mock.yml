@@ -1,4 +1,4 @@
-name: hyper_rustls
+name: mock
 
 on:
   push:
