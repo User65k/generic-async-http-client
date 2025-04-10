@@ -1,6 +1,5 @@
 use std::{
-    convert::{Infallible, TryFrom},
-    str::FromStr,
+    convert::{Infallible, TryFrom}, str::FromStr
 };
 
 use serde::Serialize;
@@ -234,7 +233,7 @@ impl Buf for FracturedBuf {
 }
 struct Framed<'a>(&'a mut Incoming);
 
-impl<'a> futures::Future for Framed<'a> {
+impl futures::Future for Framed<'_> {
     type Output = Option<Result<hyper::body::Frame<Bytes>, hyper::Error>>;
 
     fn poll(
@@ -285,6 +284,28 @@ impl fmt::Display for Error {
             Error::Urlencoded(i) => write!(f, "{}", i),
             Error::Io(i) => write!(f, "{}", i),
         }
+    }
+}
+impl From<Error> for crate::Error {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::Io(error) => Self::Io(error),
+            Error::Hyper(h) => {
+                if let Some(io) = std::error::Error::source(&h).and_then(|err|err.downcast_ref::<std::io::Error>()) {
+                    let io_e = if let Some(code) = io.raw_os_error() {
+                        std::io::Error::from_raw_os_error(code)
+                    //}else if let Some(error) = io.into_inner() {
+                    //    std::io::Error::new(io.kind(), error)
+                    }else{
+                        io.kind().into()
+                    };
+                    Self::Io(io_e)
+                }else{
+                    Self::Other(Error::Hyper(h))
+                }
+            }
+            e => Self::Other(e),
+        }        
     }
 }
 

@@ -41,7 +41,7 @@ impl Request {
         Request(imp::Req::options(uri))
     }
     pub fn new(meth: &str, uri: &str) -> Result<Request, Error> {
-        imp::Req::new(meth, uri).map(Request)
+        Ok(imp::Req::new(meth, uri).map(Request)?)
     }
     /// Add a JSON body to the request
     /// ```
@@ -145,13 +145,19 @@ impl Request {
         let r = self.0.send_request().await.map(Response)?;
         //https://crates.io/crates/hreq
 
-        if r.status_code() > 299 && r.status_code() < 399 {
-            if let Some(loc) = r.header("Location").and_then(|l| l.try_into().ok()) {
-                let _l: String = loc;
-                //TODO redirect
-            }
+        match r.status_code() {
+            100..300 => Ok(r),
+            300..400 => {
+                if let Some(loc) = r.header("Location").and_then(|l| l.try_into().ok()) {
+                    let _l: String = loc;
+                    //TODO redirect
+                }
+                Ok(r)
+            },
+            s @ 400..500 => Err(Error::HTTPClientErr(s, r)),
+            //s @ 500..600 => Err(Error::HTTPServerErr(s, r)),
+            s => Err(Error::HTTPServerErr(s, r))
         }
-        Ok(r)
     }
 }
 impl std::fmt::Debug for Request {
