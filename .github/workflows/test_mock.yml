@@ -1,0 +1,24 @@
+name: mock
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test mocking without a backend
+      run: cargo test -F mock_tests
+    - name: Test mocking with hyper
+      run: cargo test -F use_hyper,mock_tests
+    - name: Test mocking with async_h1
+      run: cargo test -F use_async_h1,mock_tests

@@ -1,10 +1,13 @@
 use crate::tcp::Stream;
 use async_std::io;
 pub use http_types::{
-    headers::{HeaderName, HeaderValue, HeaderValues, Iter as HttpHeaderIter, ToHeaderValues},
+    headers::{HeaderName, HeaderValue},
     Body,
 };
-use http_types::{Method, Request, Response, Url};
+use http_types::{
+    headers::{HeaderValues, Iter as HttpHeaderIter},
+    Method, Request, Response, Url,
+};
 use serde::Serialize;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
@@ -12,15 +15,6 @@ use std::str::FromStr;
 #[derive(Debug)]
 pub struct Req {
     req: Request,
-}
-pub struct Resp {
-    resp: Response,
-}
-
-impl From<crate::Response> for Response {
-    fn from(val: crate::Response) -> Self {
-        val.0.resp
-    }
 }
 
 impl<M, U> TryFrom<(M, U)> for crate::Request
@@ -37,32 +31,34 @@ where
     }
 }
 impl Req {
-    pub fn get(uri: &str) -> Req {
-        Self::init(Method::Get, uri)
-    }
-    pub fn post(uri: &str) -> Req {
-        Self::init(Method::Post, uri)
-    }
-    pub fn put(uri: &str) -> Req {
-        Self::init(Method::Put, uri)
-    }
-    pub fn delete(uri: &str) -> Req {
-        Self::init(Method::Delete, uri)
-    }
-    pub fn head(uri: &str) -> Req {
-        Self::init(Method::Head, uri)
-    }
-    pub fn options(uri: &str) -> Req {
-        Self::init(Method::Options, uri)
-    }
-    pub fn new(meth: &str, uri: &str) -> Result<Req, Error> {
-        Ok(Self::init(Method::from_str(meth)?, uri))
-    }
     fn init(method: Method, uri: &str) -> Req {
         let req = Request::new(method, uri);
         Req { req }
     }
-    pub async fn send_request(self) -> Result<Resp, Error> {
+}
+impl crate::request::Requests for Req {
+    fn get(uri: &str) -> Req {
+        Self::init(Method::Get, uri)
+    }
+    fn post(uri: &str) -> Req {
+        Self::init(Method::Post, uri)
+    }
+    fn put(uri: &str) -> Req {
+        Self::init(Method::Put, uri)
+    }
+    fn delete(uri: &str) -> Req {
+        Self::init(Method::Delete, uri)
+    }
+    fn head(uri: &str) -> Req {
+        Self::init(Method::Head, uri)
+    }
+    fn options(uri: &str) -> Req {
+        Self::init(Method::Options, uri)
+    }
+    fn new(meth: &str, uri: &str) -> Result<Req, Error> {
+        Ok(Self::init(Method::from_str(meth)?, uri))
+    }
+    async fn send_request(self) -> Result<crate::Response, Error> {
         let tls = match self.req.url().scheme() {
             "https" => true,
             "http" => false,
@@ -90,57 +86,107 @@ impl Req {
         //check connection headers, connect method and upgrades
         //free slot once body is consumed
 
-        Ok(Resp { resp })
+        #[cfg(not(all(feature = "mock_tests", test)))]
+        return Ok(crate::Response(Resp { resp }));
+        #[cfg(all(feature = "mock_tests", test))]
+        return Ok(crate::Response(Resp::Real(not_mocked::Resp { resp })));
     }
-    pub fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
+    fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
         self.req.set_body(Body::from_json(&json)?);
         Ok(())
     }
-    pub fn form<T: Serialize + ?Sized>(&mut self, data: &T) -> Result<(), Error> {
+    fn form<T: Serialize + ?Sized>(&mut self, data: &T) -> Result<(), Error> {
         self.req.set_body(Body::from_form(&data)?);
         Ok(())
     }
-    pub fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), Error> {
+    fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), Error> {
         self.req.set_query(&query)?;
         Ok(())
     }
-    pub fn body<B: Into<Body>>(&mut self, body: B) -> Result<(), Error> {
+    fn body<B: Into<Body>>(&mut self, body: B) -> Result<(), Error> {
         self.req.set_body(body);
         Ok(())
     }
-    pub fn set_header(&mut self, name: HeaderName, values: HeaderValue) -> Result<(), Error> {
+    fn set_header(&mut self, name: HeaderName, values: HeaderValue) -> Result<(), Error> {
         self.req.insert_header(name, values);
         Ok(())
     }
-    pub fn add_header(&mut self, name: HeaderName, values: HeaderValue) -> Result<(), Error> {
+    fn add_header(&mut self, name: HeaderName, values: HeaderValue) -> Result<(), Error> {
         self.req.append_header(name, values);
         Ok(())
     }
 }
-use serde::de::DeserializeOwned;
-impl Resp {
-    pub fn status(&self) -> u16 {
-        self.resp.status().into()
+mod not_mocked {
+    use super::*;
+    use serde::de::DeserializeOwned;
+    pub struct Resp {
+        pub(super) resp: Response,
     }
-    pub fn status_str(&self) -> &'static str {
-        self.resp.status().canonical_reason()
-    }
-    pub async fn json<D: DeserializeOwned>(&mut self) -> Result<D, Error> {
-        Ok(self.resp.body_json().await?)
-    }
-    pub async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
-        Ok(self.resp.body_bytes().await?)
-    }
-    pub async fn string(&mut self) -> Result<String, Error> {
-        Ok(self.resp.body_string().await?)
-    }
-    pub fn get_header(&self, name: HeaderName) -> Option<&HeaderValue> {
-        self.resp.header(name).and_then(|v| v.iter().next())
-    }
-    pub fn header_iter(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
-        HeaderIter::new(self.resp.iter())
+    impl crate::response::Responses for Resp {
+        fn status(&self) -> u16 {
+            self.resp.status().into()
+        }
+        fn status_str(&self) -> &'static str {
+            self.resp.status().canonical_reason()
+        }
+        async fn json<D: DeserializeOwned>(&mut self) -> Result<D, Error> {
+            Ok(self.resp.body_json().await?)
+        }
+        async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
+            Ok(self.resp.body_bytes().await?)
+        }
+        async fn string(&mut self) -> Result<String, Error> {
+            Ok(self.resp.body_string().await?)
+        }
+        fn get_header(&self, name: HeaderName) -> Option<&HeaderValue> {
+            self.resp.header(name).and_then(|v| v.iter().next())
+        }
+        fn header_iter(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
+            HeaderIter::new(self.resp.iter())
+        }
+        fn get_headers(&self, name: super::HeaderName) -> impl Iterator<Item = &HeaderValue> {
+            if let Some(h) = self.resp.header(name) {
+                Vec::from_iter(h.iter()).into_iter()
+            } else {
+                vec![].into_iter()
+            }
+        }
     }
 }
+#[cfg(not(all(feature = "mock_tests", test)))]
+pub use not_mocked::Resp;
+#[cfg(all(feature = "mock_tests", test))]
+pub type Resp = crate::mock::Resp<not_mocked::Resp>;
+#[cfg(all(feature = "mock_tests", test))]
+mod mocked {
+    use super::*;
+    use async_std::task::block_on;
+    impl From<serde_json::Error> for Error {
+        fn from(e: serde_json::Error) -> Self {
+            panic!("test with invalid json {}", e);
+        }
+    }
+    impl crate::mock::MockedRequest for Req {
+        /// on error, return full body
+        fn assert_body_bytes(&mut self, should_be: &[u8]) -> Result<(), Vec<u8>> {
+            let is = block_on(self.req.body_bytes()).unwrap_or_default();
+            if is != should_be {
+                Err(is.clone())
+            } else {
+                Ok(())
+            }
+        }
+        fn get_headers(&self, name: &str) -> Option<Vec<crate::mock::MockHeaderValue>> {
+            let name = HeaderName::from_string(name.to_string()).unwrap();
+            let hm = self.req.header(name)?;
+            Some(hm.iter().cloned().map(|v| v.into()).collect())
+        }
+        fn endpoint(&self) -> crate::mock::Endpoint {
+            (self.req.method().to_string(), self.req.url().to_string())
+        }
+    }
+}
+
 /// unroll the grouped headers
 pub struct HeaderIter<'a> {
     iter: HttpHeaderIter<'a>,
@@ -195,7 +241,7 @@ impl From<Error> for crate::Error {
         match e {
             Error::Io(error) => Self::Io(error),
             e => Self::Other(e),
-        }        
+        }
     }
 }
 
@@ -207,10 +253,5 @@ impl From<http_types::Error> for Error {
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Self::Io(e)
-    }
-}
-impl From<std::convert::Infallible> for Error {
-    fn from(_e: std::convert::Infallible) -> Self {
-        unreachable!();
     }
 }

@@ -1,5 +1,6 @@
 use std::{
-    convert::{Infallible, TryFrom}, str::FromStr
+    convert::{Infallible, TryFrom},
+    str::FromStr,
 };
 
 use serde::Serialize;
@@ -34,15 +35,6 @@ pub struct Req {
     body: Body,
     pub(crate) client: Option<HyperClient>,
 }
-pub struct Resp {
-    resp: Response<Incoming>,
-}
-
-impl From<crate::Response> for Response<Incoming> {
-    fn from(val: crate::Response) -> Self {
-        val.0.resp
-    }
-}
 
 impl<M, U> TryFrom<(M, U)> for crate::Request
 where
@@ -63,29 +55,7 @@ where
         }))
     }
 }
-
 impl Req {
-    pub fn get(uri: &str) -> Req {
-        Self::init(Method::GET, uri)
-    }
-    pub fn post(uri: &str) -> Req {
-        Self::init(Method::POST, uri)
-    }
-    pub fn put(uri: &str) -> Req {
-        Self::init(Method::PUT, uri)
-    }
-    pub fn delete(uri: &str) -> Req {
-        Self::init(Method::DELETE, uri)
-    }
-    pub fn head(uri: &str) -> Req {
-        Self::init(Method::HEAD, uri)
-    }
-    pub fn options(uri: &str) -> Req {
-        Self::init(Method::OPTIONS, uri)
-    }
-    pub fn new(meth: &str, uri: &str) -> Result<Req, Error> {
-        Ok(Self::init(Method::from_str(meth)?, uri))
-    }
     fn init(method: Method, uri: &str) -> Req {
         let req = Builder::new().method(method).uri(uri);
 
@@ -94,36 +64,6 @@ impl Req {
             body: Body::empty(),
             client: None,
         }
-    }
-    pub async fn send_request(mut self) -> Result<Resp, Error> {
-        let req = self.req.body(self.body)?;
-
-        let resp = if let Some(mut client) = self.client.take() {
-            client.request(req).await?
-        } else {
-            get_client().request(req).await?
-        };
-        Ok(Resp { resp })
-    }
-    pub fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
-        let bytes = serde_json::to_string(&json)?;
-        self.set_header(CONTENT_TYPE, HeaderValue::from_static("application/json"))?;
-        self.body = bytes.into();
-        Ok(())
-    }
-    pub fn form<T: Serialize + ?Sized>(&mut self, data: &T) -> Result<(), Error> {
-        let query = serde_urlencoded::to_string(data)?;
-        self.set_header(
-            CONTENT_TYPE,
-            HeaderValue::from_static("application/x-www-form-urlencoded"),
-        )?;
-        self.body = query.into();
-        Ok(())
-    }
-    #[inline]
-    pub fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), Error> {
-        // codegen trampoline: https://github.com/rust-lang/rust/issues/77960
-        self._query(serde_qs::to_string(&query)?)
     }
     fn _query(&mut self, query: String) -> Result<(), Error> {
         let old = self.req.uri_ref().expect("no uri");
@@ -144,65 +84,168 @@ impl Req {
         self.req = take(&mut self.req).uri(new);
         Ok(())
     }
-    pub fn body<B: Into<Body>>(&mut self, body: B) -> Result<(), Error> {
+}
+
+impl crate::request::Requests for Req {
+    fn get(uri: &str) -> Req {
+        Self::init(Method::GET, uri)
+    }
+    fn post(uri: &str) -> Req {
+        Self::init(Method::POST, uri)
+    }
+    fn put(uri: &str) -> Req {
+        Self::init(Method::PUT, uri)
+    }
+    fn delete(uri: &str) -> Req {
+        Self::init(Method::DELETE, uri)
+    }
+    fn head(uri: &str) -> Req {
+        Self::init(Method::HEAD, uri)
+    }
+    fn options(uri: &str) -> Req {
+        Self::init(Method::OPTIONS, uri)
+    }
+    fn new(meth: &str, uri: &str) -> Result<Req, Error> {
+        Ok(Self::init(Method::from_str(meth)?, uri))
+    }
+    async fn send_request(mut self) -> Result<crate::Response, Error> {
+        let req = self.req.body(self.body)?;
+
+        let resp = if let Some(mut client) = self.client.take() {
+            client.request(req).await?
+        } else {
+            get_client().request(req).await?
+        };
+
+        #[cfg(not(all(feature = "mock_tests", test)))]
+        return Ok(crate::Response(Resp { resp }));
+        #[cfg(all(feature = "mock_tests", test))]
+        return Ok(crate::Response(Resp::Real(not_mocked::Resp { resp })));
+    }
+    fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), Error> {
+        let bytes = serde_json::to_string(&json)?;
+        self.set_header(CONTENT_TYPE, HeaderValue::from_static("application/json"))?;
+        self.body = bytes.into();
+        Ok(())
+    }
+    fn form<T: Serialize + ?Sized>(&mut self, data: &T) -> Result<(), Error> {
+        let query = serde_urlencoded::to_string(data)?;
+        self.set_header(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/x-www-form-urlencoded"),
+        )?;
+        self.body = query.into();
+        Ok(())
+    }
+    #[inline]
+    fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), Error> {
+        // codegen trampoline: https://github.com/rust-lang/rust/issues/77960
+        self._query(serde_qs::to_string(&query)?)
+    }
+    fn body<B: Into<Body>>(&mut self, body: B) -> Result<(), Error> {
         self.body = body.into();
         Ok(())
     }
-    pub fn set_header(&mut self, name: HeaderName, value: HeaderValue) -> Result<(), Error> {
+    fn set_header(&mut self, name: HeaderName, value: HeaderValue) -> Result<(), Error> {
         self.req.headers_mut().map(|hm| hm.insert(name, value));
         Ok(())
     }
-    pub fn add_header(&mut self, name: HeaderName, value: HeaderValue) -> Result<(), Error> {
+    fn add_header(&mut self, name: HeaderName, value: HeaderValue) -> Result<(), Error> {
         self.req = take(&mut self.req).header(name, value);
         Ok(())
     }
 }
 use hyper::body::Buf;
 use serde::de::DeserializeOwned;
-impl Resp {
-    pub fn status(&self) -> u16 {
-        self.resp.status().as_u16()
+
+mod not_mocked {
+    use super::*;
+    pub struct Resp {
+        pub(super) resp: Response<Incoming>,
     }
-    pub fn status_str(&self) -> &'static str {
-        self.resp.status().canonical_reason().unwrap_or("")
-    }
-    pub async fn json<D: DeserializeOwned>(&mut self) -> Result<D, Error> {
-        let reader = aggregate(self.resp.body_mut()).await?.reader();
-        Ok(serde_json::from_reader(reader)?)
-    }
-    pub async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
-        let mut b = aggregate(self.resp.body_mut()).await?;
-        let capacity = b.remaining();
-        let mut v = Vec::with_capacity(capacity);
-        let ptr = v.spare_capacity_mut().as_mut_ptr();
-        let mut off = 0;
-        while off < capacity {
-            let cnt;
+    impl crate::response::Responses for Resp {
+        fn status(&self) -> u16 {
+            self.resp.status().as_u16()
+        }
+        fn status_str(&self) -> &'static str {
+            self.resp.status().canonical_reason().unwrap_or("")
+        }
+        async fn json<D: DeserializeOwned>(&mut self) -> Result<D, Error> {
+            let reader = aggregate(self.resp.body_mut()).await?.reader();
+            Ok(serde_json::from_reader(reader)?)
+        }
+        async fn bytes(&mut self) -> Result<Vec<u8>, Error> {
+            let mut b = aggregate(self.resp.body_mut()).await?;
+            let capacity = b.remaining();
+            //Ok(b.copy_to_bytes(capacity).into())
+            let mut v = Vec::with_capacity(capacity);
+            let ptr = v.spare_capacity_mut().as_mut_ptr();
+            let dst = unsafe { std::slice::from_raw_parts_mut(ptr.cast::<u8>(), capacity) };
+            b.copy_to_slice(dst);
             unsafe {
-                let src = b.chunk();
-                cnt = src.len();
-                std::ptr::copy_nonoverlapping(src.as_ptr(), ptr.add(off).cast(), cnt);
-                off += cnt;
+                v.set_len(capacity);
             }
-            b.advance(cnt);
+            Ok(v)
         }
-        unsafe {
-            v.set_len(capacity);
+        async fn string(&mut self) -> Result<String, Error> {
+            let b = self.bytes().await?;
+            Ok(String::from_utf8_lossy(&b).to_string())
         }
-        Ok(v)
-    }
-    pub async fn string(&mut self) -> Result<String, Error> {
-        let b = self.bytes().await?;
-        Ok(String::from_utf8_lossy(&b).to_string())
-    }
-    pub fn get_header(&self, name: HeaderName) -> Option<&HeaderValue> {
-        self.resp.headers().get(name)
-    }
-    pub fn header_iter(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
-        self.resp.headers().into_iter()
+        fn get_header(&self, name: HeaderName) -> Option<&HeaderValue> {
+            self.resp.headers().get(name)
+        }
+        fn get_headers(&self, name: HeaderName) -> impl Iterator<Item = &HeaderValue> {
+            self.resp.headers().get_all(name).iter()
+        }
+        fn header_iter(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
+            self.resp.headers().into_iter()
+        }
     }
 }
 
+#[cfg(not(all(feature = "mock_tests", test)))]
+pub use not_mocked::Resp;
+#[cfg(all(feature = "mock_tests", test))]
+pub type Resp = crate::mock::Resp<not_mocked::Resp>;
+
+#[cfg(all(feature = "mock_tests", test))]
+impl crate::mock::MockedRequest for Req {
+    /// on error, return full body
+    fn assert_body_bytes(&mut self, should_be: &[u8]) -> Result<(), Vec<u8>> {
+        let is = &self.body.0;
+        if is != should_be {
+            Err(is.clone())
+        } else {
+            Ok(())
+        }
+    }
+    fn get_headers(&self, name: &str) -> Option<Vec<crate::mock::MockHeaderValue>> {
+        let name = HeaderName::from_str(name).unwrap();
+        let hm = self
+            .req
+            .headers_ref()
+            .expect("builder should not have errors");
+        if !hm.contains_key(&name) {
+            return None;
+        }
+        Some(hm.get_all(name).iter().cloned().map(|v| v.into()).collect())
+    }
+    fn endpoint(&self) -> crate::mock::Endpoint {
+        let uri = self
+            .req
+            .uri_ref()
+            .map(|u| u.to_string())
+            .unwrap_or_default();
+        let meth = self
+            .req
+            .method_ref()
+            .map(|u| u.to_string())
+            .unwrap_or_default();
+        (meth, uri)
+    }
+}
+
+//(fragmented) memory returned by aggregate
 struct FracturedBuf(std::collections::VecDeque<Bytes>);
 impl Buf for FracturedBuf {
     fn remaining(&self) -> usize {
@@ -231,6 +274,7 @@ impl Buf for FracturedBuf {
         }
     }
 }
+/// Helper for aggregate function. Polls a single frame from an incoming body
 struct Framed<'a>(&'a mut Incoming);
 
 impl futures::Future for Framed<'_> {
@@ -243,6 +287,7 @@ impl futures::Future for Framed<'_> {
         std::pin::Pin::new(&mut self.0).poll_frame(ctx)
     }
 }
+/// read an incoming body to (fragmented) memory
 async fn aggregate(body: &mut Incoming) -> Result<FracturedBuf, Error> {
     let mut v = std::collections::VecDeque::new();
     while let Some(f) = Framed(body).await {
@@ -291,29 +336,33 @@ impl From<Error> for crate::Error {
         match e {
             Error::Io(error) => Self::Io(error),
             Error::Hyper(h) => {
-                if let Some(io) = std::error::Error::source(&h).and_then(|err|err.downcast_ref::<std::io::Error>()) {
+                //It might be an IO error. If so, return it as such
+                if let Some(io) = std::error::Error::source(&h)
+                    .and_then(|err| err.downcast_ref::<std::io::Error>())
+                {
                     let io_e = if let Some(code) = io.raw_os_error() {
                         std::io::Error::from_raw_os_error(code)
                     //}else if let Some(error) = io.into_inner() {
                     //    std::io::Error::new(io.kind(), error)
-                    }else{
+                    } else {
                         io.kind().into()
                     };
                     Self::Io(io_e)
-                }else{
+                } else {
                     Self::Other(Error::Hyper(h))
                 }
             }
             e => Self::Other(e),
-        }        
+        }
     }
 }
-
+//connect_to_uri
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Self::Io(e)
     }
 }
+//Req::form
 impl From<serde_urlencoded::ser::Error> for Error {
     fn from(e: serde_urlencoded::ser::Error) -> Self {
         Self::Urlencoded(e)
@@ -324,17 +373,19 @@ impl From<InvalidUri> for Error {
         Self::InvalidUri(e)
     }
 }
+//TryFrom<> for HeaderName
 impl From<InvalidHeaderName> for Error {
     fn from(e: InvalidHeaderName) -> Self {
         Self::InvalidHeaderName(e)
     }
 }
-
+//TryFrom<> for HeaderValue
 impl From<InvalidHeaderValue> for Error {
     fn from(e: InvalidHeaderValue) -> Self {
         Self::InvalidHeaderValue(e)
     }
 }
+//Resp::json
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Self::Json(e)
@@ -355,14 +406,10 @@ impl From<HTTPError> for Error {
         Self::Http(e)
     }
 }
+//Req::query
 impl From<serde_qs::Error> for Error {
     fn from(e: serde_qs::Error) -> Self {
         Self::InvalidQueryString(e)
-    }
-}
-impl From<std::convert::Infallible> for Error {
-    fn from(_e: std::convert::Infallible) -> Self {
-        unreachable!();
     }
 }
 

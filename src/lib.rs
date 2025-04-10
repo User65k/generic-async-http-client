@@ -15,10 +15,17 @@
  *    Ok(())
  * }
  * ```
- * 
+ *
  * If performing more than one HTTP Request you should favor the use of [`Session`] over [`Request`].
  */
 #![cfg_attr(docsrs, feature(doc_cfg))]
+
+#[cfg(all(feature = "mock_tests", any(test, docsrs)))]
+mod mock;
+#[cfg(all(feature = "mock_tests", any(test, docsrs)))]
+#[cfg_attr(docsrs, doc(cfg(all(test, feature = "mock_tests"))))]
+#[doc(inline)]
+pub use mock::{Mock, MockErr, MockedEndpoint};
 
 #[cfg(not(any(feature = "use_hyper", feature = "use_async_h1")))]
 #[path = "dummy/mod.rs"]
@@ -59,7 +66,10 @@ pub enum Error {
     Io(std::io::Error),
     HTTPServerErr(u16, Response),
     HTTPClientErr(u16, Response),
-    Other(imp::Error)
+    Other(imp::Error),
+    #[cfg(all(feature = "mock_tests", any(test, docsrs)))]
+    #[cfg_attr(docsrs, doc(cfg(all(test, feature = "mock_tests"))))]
+    Mock(mock::MockErr),
 }
 
 impl std::error::Error for Error {}
@@ -71,12 +81,9 @@ impl fmt::Display for Error {
             Error::HTTPClientErr(i, r) => write!(f, "{} {}", i, r.status()),
             Error::HTTPServerErr(i, r) => write!(f, "{} {}", i, r.status()),
             Error::Io(i) => write!(f, "{}", i),
+            #[cfg(all(feature = "mock_tests", test))]
+            Error::Mock(m) => write!(f, "{}", m),
         }
-    }
-}
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e)
     }
 }
 impl From<std::convert::Infallible> for Error {
@@ -84,10 +91,14 @@ impl From<std::convert::Infallible> for Error {
         unreachable!();
     }
 }
+#[cfg(all(feature = "mock_tests", test))]
+impl From<mock::MockErr> for Error {
+    fn from(e: mock::MockErr) -> Self {
+        Self::Mock(e)
+    }
+}
 
-#[cfg(all(test,
-    any(feature = "use_hyper", feature = "use_async_h1")
-))]
+#[cfg(all(test, any(feature = "use_hyper", feature = "use_async_h1")))]
 mod tests {
     #[cfg(feature = "use_async_h1")]
     pub(crate) use async_std::{

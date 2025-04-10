@@ -16,7 +16,9 @@ and handles TLS, serialization and parsing.
 The main goal is to allow binaries (that pull in some libraries that make use of a HTTP client)
 to **specify what implementation should be used**.
 
-And if there is a **Proxy**. If not specified auto detection is performed by looking at `HTTP_PROXY`.
+And if there is a [**Proxy**](https://docs.rs/generic-async-http-client/0.6.2/generic_async_http_client/proxy/index.html). If not specified auto detection is performed by looking at `HTTP_PROXY`.
+
+Also, you can **[Mock](https://docs.rs/generic-async-http-client/0.7.0/generic_async_http_client/struct.Mock.html) the webserver side for tests**.
 
 # Features
 You need to specify via features what crates are used to do the actual work.

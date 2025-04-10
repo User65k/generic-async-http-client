@@ -58,6 +58,7 @@ rustls_aws_lc_rs = ["futures-rustls/aws_lc_rs", "tokio-rustls/aws_lc_rs", "rustl
 rustls_fips    =   ["futures-rustls/fips",      "tokio-rustls/fips",      "rustls_byoc"]
 async_native_tls = ["use_async_h1","async-native-tls/runtime-async-std"]
 hyper_native_tls = ["use_hyper","async-native-tls/runtime-tokio"]
+mock_tests = ["serde_qs", "serde_urlencoded","serde_json"]
 
 default = []
 
@@ -71,5 +72,5 @@ name = "httpbin_org"
 path = "examples/httpbin_org.rs"
 
 [package.metadata.docs.rs]
-features = ["proxies", "use_hyper"]
+features = ["proxies", "use_hyper", "mock_tests"]
 rustdoc-args = ["--cfg", "docsrs"]
