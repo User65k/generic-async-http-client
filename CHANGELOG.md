@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4](https://github.com/User65k/generic-async-http-client/compare/v0.6.3...v0.6.4) - 2025-04-10
+
+### Other
+
+- Merge pull request #19 from User65k/mock
+- rename action
+- make the example work w/o runtime
+- response mocking
+- error
+
 ## [0.6.3](https://github.com/User65k/generic-async-http-client/compare/v0.6.2...v0.6.3) - 2025-03-01
 
 ### Other
