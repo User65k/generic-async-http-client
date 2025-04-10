@@ -1,6 +1,6 @@
 use crate::{imp, Body, Error, HeaderName, HeaderValue, Response};
 use serde::Serialize;
-use std::convert::TryInto;
+use std::{convert::TryInto, fmt::Debug};
 
 /// Builds a HTTP request, poll it to query
 /// ```
@@ -142,7 +142,14 @@ impl Request {
 
     /// Send the request to the webserver
     pub async fn exec(self) -> Result<Response, Error> {
-        let r = self.0.send_request().await.map(Response)?;
+        #[cfg(all(feature = "mock_tests", test))]
+        let r = if crate::Mock::uses_mock() {
+            Response(crate::Mock::check(self.0)?)
+        } else {
+            self.0.send_request().await?
+        };
+        #[cfg(not(all(feature = "mock_tests", test)))]
+        let r = self.0.send_request().await?;
         //https://crates.io/crates/hreq
 
         match r.status_code() {
@@ -153,17 +160,46 @@ impl Request {
                     //TODO redirect
                 }
                 Ok(r)
-            },
+            }
             s @ 400..500 => Err(Error::HTTPClientErr(s, r)),
             //s @ 500..600 => Err(Error::HTTPServerErr(s, r)),
-            s => Err(Error::HTTPServerErr(s, r))
+            s => Err(Error::HTTPServerErr(s, r)),
         }
     }
 }
-impl std::fmt::Debug for Request {
+impl Debug for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.0, f)
     }
+}
+
+pub trait Requests: Debug {
+    fn get(uri: &str) -> Self;
+    fn post(uri: &str) -> Self;
+    fn put(uri: &str) -> Self;
+    fn delete(uri: &str) -> Self;
+    fn head(uri: &str) -> Self;
+    fn options(uri: &str) -> Self;
+    fn new(meth: &str, uri: &str) -> Result<Self, imp::Error>
+    where
+        Self: std::marker::Sized;
+    async fn send_request(self) -> Result<Response, imp::Error>
+    where
+        Self: std::marker::Sized;
+    fn json<T: Serialize + ?Sized>(&mut self, json: &T) -> Result<(), imp::Error>;
+    fn form<T: Serialize + ?Sized>(&mut self, data: &T) -> Result<(), imp::Error>;
+    fn query<T: Serialize + ?Sized>(&mut self, query: &T) -> Result<(), imp::Error>;
+    fn body<B: Into<imp::Body>>(&mut self, body: B) -> Result<(), imp::Error>;
+    fn set_header(
+        &mut self,
+        name: imp::HeaderName,
+        values: imp::HeaderValue,
+    ) -> Result<(), imp::Error>;
+    fn add_header(
+        &mut self,
+        name: imp::HeaderName,
+        values: imp::HeaderValue,
+    ) -> Result<(), imp::Error>;
 }
 
 /*

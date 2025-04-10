@@ -39,6 +39,14 @@ impl Response {
             Ok(name) => self.0.get_header(name.into()).map(|v| v.into()),
         }
     }
+    /// return an error if `name` is not a valid header name
+    pub fn all_header(
+        &self,
+        name: impl TryInto<HeaderName, Error = imp::Error>,
+    ) -> Result<impl Iterator<Item = &HeaderValue>, Error> {
+        let name: HeaderName = name.try_into()?;
+        Ok(self.0.get_headers(name.into()).map(|v| v.into()))
+    }
     /// Each key will be yielded once per associated value. So, if a key has 3 associated values, it will be yielded 3 times.
     pub fn headers(&self) -> impl Iterator<Item = (&HeaderName, &HeaderValue)> {
         self.0.header_iter().map(|(n, v)| (n.into(), v.into()))
@@ -55,4 +63,15 @@ impl std::fmt::Debug for Response {
         let h: Vec<(&HeaderName, &HeaderValue)> = self.headers().collect();
         write!(f, "HTTP {} Header: {:?}", self.status_code(), h)
     }
+}
+
+pub trait Responses {
+    fn status(&self) -> u16;
+    fn status_str(&self) -> &'static str;
+    async fn json<D: DeserializeOwned>(&mut self) -> Result<D, imp::Error>;
+    async fn bytes(&mut self) -> Result<Vec<u8>, imp::Error>;
+    async fn string(&mut self) -> Result<String, imp::Error>;
+    fn get_header(&self, name: imp::HeaderName) -> Option<&imp::HeaderValue>;
+    fn get_headers(&self, name: imp::HeaderName) -> impl Iterator<Item = &imp::HeaderValue>;
+    fn header_iter(&self) -> impl Iterator<Item = (&imp::HeaderName, &imp::HeaderValue)>;
 }
